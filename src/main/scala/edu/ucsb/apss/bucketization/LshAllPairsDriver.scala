@@ -1,5 +1,8 @@
 package edu.ucsb.apss.bucketization
 
+import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
+
 /**
   * Created by dimberman on 12/7/15.
   *
@@ -7,6 +10,9 @@ package edu.ucsb.apss.bucketization
   * The essential idea is that we seperate each vector by a random group of "anchor vectors"
   * We then choose closest pairs within those buckets and then merge the buckets to find the "good enough" answer
   */
-class LshAllPairsDriver {
+object LshAllPairsDriver {
+      def bucketizeTweets(sc:SparkContext, tweets:RDD[String]) = {
+
+      }
 
 }
