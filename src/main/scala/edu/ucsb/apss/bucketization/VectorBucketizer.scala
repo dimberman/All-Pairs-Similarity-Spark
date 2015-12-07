@@ -1,11 +1,11 @@
 package edu.ucsb.apss.bucketization
 
-import org.apache.spark.mllib.linalg.SparseVector
+import org.apache.spark.mllib.linalg.Vector
 
 
 /**
   * Created by dimberman on 12/6/15.
   */
-class VectorBucketizer(val anchors:List[SparseVector]) extends Serializable{
-
+abstract class VectorBucketizer extends Serializable{
+  def calculateCosineSimilarity[T <: Vector](a:T, b:T): Double
 }
