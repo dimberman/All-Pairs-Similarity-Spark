@@ -7,4 +7,8 @@ import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
   */
 class LshAllPairsDriverTest extends FlatSpec with Matchers with BeforeAndAfter{
 
+  "bucketizeTweets" should "take in an RDD of tweets and return an RDD of tweets mapped into x buckets" in {
+
+  }
+  it should "correctly map the tweets based on their cosine similarity to "
 }

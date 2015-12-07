@@ -18,6 +18,5 @@ class TweetToVectorConverterTest extends FlatSpec with Matchers with BeforeAndAf
        val modifiedData = testData.map(converter.convertTweetToVector).collect()
        modifiedData(0) shouldEqual modifiedData(1)
        modifiedData(3) shouldEqual modifiedData(4)
-
      }
 }
