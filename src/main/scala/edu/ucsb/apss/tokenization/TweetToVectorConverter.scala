@@ -1,6 +1,7 @@
 package edu.ucsb.apss.tokenization
 
 import org.apache.spark.mllib.feature.HashingTF
+import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 
 /**
@@ -13,8 +14,8 @@ class TweetToVectorConverter extends Serializable{
     table.transform(s.map(a => a.split(" ").toSeq))
   }
 
-  def convertTweetToVector(s:String) = {
-    table.transform(s.split(" ").toSeq)
+  def convertTweetToVector(s:String):SparseVector = {
+    table.transform(s.split(" ").toSeq).toSparse
   }
 
 }

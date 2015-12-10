@@ -11,7 +11,7 @@ import org.scalatest.{Matchers, BeforeAndAfter, FlatSpec}
 class SparseVectorBucketizerTest extends FlatSpec with Matchers with BeforeAndAfter {
 
   val dummySparse1 = new SparseVector(3, Array(1, 2, 3), Array(1, 1, 1))
-  val dummySparse2 = new SparseVector(3, Array(4, 5, 6), Array(.1, .2, .3))
+  val dummySparse2 = new SparseVector(3, Array(4, 5, 6), Array(1, 1, 1))
   val dummySparse3 = new SparseVector(3, Array(1, 2, 3), Array(1, 1, 1))
   val dummySparse4 = new SparseVector(3, Array(1, 2, 4), Array(1, 1, 1))
 
