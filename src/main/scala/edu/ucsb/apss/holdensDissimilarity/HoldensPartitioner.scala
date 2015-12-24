@@ -51,11 +51,10 @@ class HoldensPartitioner extends Serializable {
     }
 
 
-    //TODO is there a way we can have this pre-broadcasted  or not even worry about sparkContext stuff at all?
-    //TODO answer: let the driver function broadcast before it ever reaches this point
     def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, NormalizedVector)], leaders: Array[(Int, Double)], sc: SparkContext): RDD[(Int, NormalizedVector)] = {
         //this step should reduce the ammount of data that needs to be shuffled
         val lInfNormsOnly = inputVectors.mapValues(_.lInf)
+        //TODO would it be cheaper to pre-shuffle all the vectors into partitions and the mapPartition?
         val broadcastedLeaders = sc.broadcast(leaders)
         val buckets = lInfNormsOnly.map(
             norm => {
