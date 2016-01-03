@@ -1,5 +1,7 @@
 package edu.ucsb.apss.tokenization
 
+import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
+import org.apache.spark.mllib.linalg.SparseVector
 import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
 
 /**
@@ -10,8 +12,7 @@ class BagOfWordToVectorConverterTest extends FlatSpec with Matchers with BeforeA
     "The converter" should "read in a series of space delimited integers and convert them into a SparseVector" in {
         val input = "1 2 3 4 4"
         val convertedVector = converter.convert(input)
-        convertedVector.indices shouldEqual Seq(1,2,3,4)
-        convertedVector.values.sum should be (5.0 +- .000001)
-        convertedVector.values.last should be (2.0 +- .00001)
+        val expected = new SparseVector(1048576, Array(1,2,3,4), Array(1.0,1.0,1.0,2.0))
+        convertedVector shouldEqual expected
     }
 }

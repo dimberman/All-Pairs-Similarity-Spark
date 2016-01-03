@@ -59,7 +59,7 @@ class LshAllPairsDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 //    }
 
 
-    "apss" should "calculate the most similar vectors" in {
+    "edu/ucsb/apss" should "calculate the most similar vectors" in {
         val par =  sc.parallelize(Seq("a a a a", "a a a b", "a a b b c", "b b b b"))
         val answer = driver.run(par, 2)
         Seq(answer._1, answer._2) should contain allElementsOf answerVals
