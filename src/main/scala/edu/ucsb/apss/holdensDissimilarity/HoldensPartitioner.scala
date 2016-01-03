@@ -44,9 +44,6 @@ class HoldensPartitioner extends Serializable {
 
 
     def determineBucketLeaders(r: RDD[(Int, NormalizedVector)]): RDD[(Int, Double)] = {
-        //        val normsOnly = r.map(f => (f._1, f._2.l1))
-        //        TODO we might not need to do this
-        //        normsOnly.reduceByKey(math.max)
         r.reduceByKey((a, b) => if (a.l1 > b.l1) a else b).mapValues(_.l1)
 
     }
@@ -61,20 +58,41 @@ class HoldensPartitioner extends Serializable {
             case (bucket, norms) =>
                 //TODO this is inefficient, can be done in O(logn) time, though it might not be important unless there are LOTS of buckets
                 //TODO possibly use Collections.makeBinarySearch?
-                val taperedBuckets = broadcastedLeaders.value.take(bucket+1).toList
-
+                val taperedBuckets = broadcastedLeaders.value.take(bucket + 1).toList
                 var current = 0
                 while ((threshold / norms > taperedBuckets(current)._2) && current < taperedBuckets.size - 1)
                     current = current + 1
                 taperedBuckets(current)._1
-
-
         }
         inputVectors.zip(buckets).map {
             case ((key, vec), matchedBuckets) =>
                 vec.associatedLeader = matchedBuckets
                 (key, vec)
         }
+    }
+
+
+    def equallyPartitionTasksByKey(numBuckets: Int): List[(Int, List[Int])] = {
+        val masters: List[Int] = List.range(0, numBuckets)
+        masters.map(
+            m =>
+                m % 2 match {
+                    case 1 =>
+                        val e = List.range(m + 1, (m + 1) + (numBuckets - 1) / 2)
+                        val c = e.map(_ % numBuckets)
+                        (m, c)
+                    case 0 =>
+                        if (m < numBuckets / 2)
+                            (m, List.range(m + 1, (m + 1) + numBuckets / 2).map(_ % numBuckets))
+                        else {
+                            val x = (m + 1) + numBuckets / 2
+                            val e = List.range(m + 1, x)
+                            val c = e.map(_ % numBuckets)
+                            (m, c)
+                        }
+
+                }
+        )
     }
 
 

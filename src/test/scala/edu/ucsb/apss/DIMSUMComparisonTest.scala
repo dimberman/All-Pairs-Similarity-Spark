@@ -27,7 +27,7 @@ class DIMSUMComparisonTest extends FlatSpec with Matchers with BeforeAndAfter {
 
         val a = mat.columnSimilarities(11.01)
         val exactEntries = a.entries.map { case MatrixEntry(i, j, u) => (u, (i, j)) }
-        exactEntries.sortByKey(false).foreach(println)
+//        exactEntries.sortByKey(false).foreach(println)
 
 
     }

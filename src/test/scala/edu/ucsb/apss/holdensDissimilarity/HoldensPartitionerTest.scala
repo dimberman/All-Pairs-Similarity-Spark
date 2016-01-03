@@ -78,12 +78,12 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
     "tieVectorsToHighestBuckets" should "take every vector and tie it to the bucket which has the closest but < leader to its lInf" in {
         val bucketizedVectors = partitioner.partitionByL1Norm(testRDD, 4, 20)
         val leaders = partitioner.determineBucketLeaders(bucketizedVectors).collect().sortBy(a => a._1)
-        val threshold = 1.1
+        val threshold = 1.5
         val tiedVectors = partitioner.tieVectorsToHighestBuckets(bucketizedVectors, leaders, threshold, sc)
         leaders.foreach{case (bucket, value) => println(s"leader for bucket $bucket: $value") }
         tiedVectors.foreach {
             case (bucketName, dr) =>
-                println(s"In bucket $bucketName ${dr.lInf} is tied to leader ${dr.associatedLeader} with a tmax ${threshold/dr.lInf}")
+//                println(s"In bucket $bucketName ${dr.lInf} is tied to leader ${dr.associatedLeader} with a tmax ${threshold/dr.lInf}")
         }
     }
 
@@ -100,7 +100,30 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
 
     }
 
-    it should "set all associatedLeader values to a value other than -1"
+    it should "set all associatedLeader values to a value other than -1"  in {
+
+    }
+
+    "equallyPartitionTasksByKey" should "take in the number of buckets and assign each master task to a series of slave tasks" in {
+
+    }
+
+    it should "assure that each pair is matched exactly once" in {
+        val bucketVals = sc.parallelize(List.range(0, 5))
+        val matchedPairs = bucketVals.cartesian(bucketVals)
+          //getting rid of reflexive comparison
+          .filter{case(x,c) => x!=c}
+          //making order not matter (i.e. (1,3) == (3,1)
+          .map{case(x,c) => if (x>c)(c,x) else (x,c)}.sortByKey()
+          //getting rid of copies
+          .distinct().collect().toList
+        matchedPairs.foreach(println)
+        val partitionLists = partitioner.equallyPartitionTasksByKey(5)
+        val partitionPairs = partitionLists.flatMap{case (x, b) => b.map(c => (x,c))}.map{case(x,c) => if (x>c)(c,x) else (x,c)}
+        partitionPairs.length shouldEqual matchedPairs.length
+        partitionPairs should contain allElementsOf matchedPairs
+    }
 
 
 }
+
