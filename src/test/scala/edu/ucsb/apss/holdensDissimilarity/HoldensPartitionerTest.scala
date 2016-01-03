@@ -115,7 +115,7 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
             //getting rid of copies
             .distinct().collect().toList
 //          matchedPairs.foreach(println)
-          val partitionLists = partitioner.equallyPartitionTasksByKey(i)
+          val partitionLists = partitioner.equallyPartitionTasksByKey(i).map(a => (a.name, a.values))
           val partitionPairs = partitionLists.flatMap{case (x, b) => b.map(c => (x,c))}.map{case(x,c) => if (x>c)(c,x) else (x,c)}
           partitionPairs.length shouldEqual matchedPairs.length
           //        partitionPairs.distinct.length shouldEqual matchedPairs.length

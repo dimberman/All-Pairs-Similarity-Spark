@@ -1,6 +1,6 @@
 package edu.ucsb.apss.holdensDissimilarity
 
-import edu.ucsb.apss.{BucketAlias, NormalizedVector}
+import edu.ucsb.apss.{BucketMapping, BucketAlias, NormalizedVector}
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
@@ -72,7 +72,7 @@ class HoldensPartitioner extends Serializable {
     }
 
 
-    def equallyPartitionTasksByKey(numBuckets: Int): List[(Int, List[Int])] = {
+    def equallyPartitionTasksByKey(numBuckets: Int): List[BucketMapping] = {
         val masters: List[Int] = List.range(0, numBuckets)
         masters.map(
             m =>
@@ -80,15 +80,15 @@ class HoldensPartitioner extends Serializable {
                     case 1 =>
                         val e = List.range(m + 1, (m + 1) + (numBuckets - 1) / 2)
                         val c = e.map(_ % numBuckets)
-                        (m, c)
+                        BucketMapping(m, c)
                     case 0 =>
                         if (m < numBuckets / 2)
-                            (m, List.range(m + 1, (m + 1) + numBuckets / 2).map(_ % numBuckets))
+                            BucketMapping(m, List.range(m + 1, (m + 1) + numBuckets / 2).map(_ % numBuckets))
                         else {
                             val x = (m + 1)  + numBuckets / 2 - 1
                             val e = List.range(m + 1, x)
                             val c = e.map(_ % numBuckets)
-                            (m, c)
+                            BucketMapping(m, c)
                         }
 
                 }
