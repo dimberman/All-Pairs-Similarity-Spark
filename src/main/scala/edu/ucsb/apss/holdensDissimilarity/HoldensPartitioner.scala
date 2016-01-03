@@ -37,46 +37,42 @@ class HoldensPartitioner extends Serializable {
     }
 
 
-    def partitionByL1Norm(r: RDD[SparseVector], numBuckets: Int, numVectors: Int): RDD[(Int, Iterable[NormalizedVector])] = {
+    def partitionByL1Norm(r: RDD[SparseVector], numBuckets: Int, numVectors: Int): RDD[(Int, NormalizedVector)] = {
         val sorted = sortByl1Norm(r).map(f => NormalizedVector(lInfNorm(f._2), f._1, f._2))
-        sorted.zipWithIndex().map { case (vector, index) => ((index / (numVectors / numBuckets)).toInt, vector) }.groupByKey()
+        sorted.zipWithIndex().map { case (vector, index) => ((index / (numVectors / numBuckets)).toInt, vector) }
     }
 
 
-    def determineBucketLeaders(r: RDD[(Int, Iterable[NormalizedVector])]): RDD[(Int, Double)] = {
+    def determineBucketLeaders(r: RDD[(Int, NormalizedVector)]): RDD[(Int, Double)] = {
         //        val normsOnly = r.map(f => (f._1, f._2.l1))
         //        TODO we might not need to do this
         //        normsOnly.reduceByKey(math.max)
-        r.mapValues(b => b.last.l1)
+        r.reduceByKey((a, b) => if (a.l1 > b.l1) a else b).mapValues(_.l1)
 
     }
 
 
-    def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, Iterable[NormalizedVector])], leaders: Array[(Int, Double)], threshold:Double, sc: SparkContext): RDD[(Int, Iterable[NormalizedVector])] = {
+    def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, NormalizedVector)], leaders: Array[(Int, Double)], threshold: Double, sc: SparkContext): RDD[(Int, NormalizedVector)] = {
         //this step should reduce the amount of data that needs to be shuffled
-        val lInfNormsOnly = inputVectors.mapValues(_.map(_.lInf))
+        val lInfNormsOnly = inputVectors.mapValues(_.lInf)
         //TODO would it be cheaper to pre-shuffle all the vectors into partitions and the mapPartition?
         val broadcastedLeaders = sc.broadcast(leaders)
-        val buckets: RDD[Iterable[Int]] = lInfNormsOnly.map {
+        val buckets: RDD[Int] = lInfNormsOnly.map {
             case (bucket, norms) =>
                 //TODO this is inefficient, can be done in O(logn) time, though it might not be important unless there are LOTS of buckets
                 //TODO possibly use Collections.makeBinarySearch?
-                val taperedBuckets = broadcastedLeaders.value.takeWhile(_._1 <= bucket).toList
-                val b = Array[Int](0)
-                norms.map(
-                    n =>{
-                        var current = 0
-                        while ((threshold/n > taperedBuckets(current)._2) && current < taperedBuckets.size - 1)
-                            current = current + 1
-                        taperedBuckets(current)._1
-                    }
-                )
+                val taperedBuckets = broadcastedLeaders.value.take(bucket+1).toList
+
+                var current = 0
+                while ((threshold / norms > taperedBuckets(current)._2) && current < taperedBuckets.size - 1)
+                    current = current + 1
+                taperedBuckets(current)._1
 
 
         }
         inputVectors.zip(buckets).map {
             case ((key, vec), matchedBuckets) =>
-                vec.zip(matchedBuckets).foreach { case (v, leader) => v.associatedLeader = leader }
+                vec.associatedLeader = matchedBuckets
                 (key, vec)
         }
     }

@@ -63,7 +63,7 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
     "partitionByL1Norm" should "partition values into buckets blah blha blah" in {
         val bucketizedLargeVec = partitioner.partitionByL1Norm(testRDD, 4, 20)
         bucketizedLargeVec.keys.distinct().count() shouldEqual 4
-        val bucketSizes = bucketizedLargeVec.values.map(v => v.size).collect()
+        val bucketSizes = bucketizedLargeVec.mapValues(a => 1).reduceByKey(_+_).values.collect()
         bucketSizes.foreach(_ shouldBe 5)
     }
 
@@ -83,8 +83,7 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
         leaders.foreach{case (bucket, value) => println(s"leader for bucket $bucket: $value") }
         tiedVectors.foreach {
             case (bucketName, dr) =>
-                println("bucket: " + bucketName + " is tied to leaders: ")
-                dr.foreach(a => println(s"${a.lInf} is tied to leader ${a.associatedLeader} with a tmax ${threshold/a.lInf}"))
+                println(s"In bucket $bucketName ${dr.lInf} is tied to leader ${dr.associatedLeader} with a tmax ${threshold/dr.lInf}")
         }
     }
 
