@@ -104,24 +104,24 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
 
     }
 
-    "equallyPartitionTasksByKey" should "take in the number of buckets and assign each master task to a series of slave tasks" in {
+    "equallyPartitionTasksByKey" should "assure that each pair is matched exactly once" in {
+      for(i <- 2 to 25){
+          val bucketVals = sc.parallelize(List.range(0, i))
+          val matchedPairs = bucketVals.cartesian(bucketVals)
+            //getting rid of reflexive comparison
+            .filter{case(x,c) => x!=c}
+            //making order not matter (i.e. (1,3) == (3,1)
+            .map{case(x,c) => if (x>c)(c,x) else (x,c)}.sortByKey()
+            //getting rid of copies
+            .distinct().collect().toList
+//          matchedPairs.foreach(println)
+          val partitionLists = partitioner.equallyPartitionTasksByKey(i)
+          val partitionPairs = partitionLists.flatMap{case (x, b) => b.map(c => (x,c))}.map{case(x,c) => if (x>c)(c,x) else (x,c)}
+          partitionPairs.length shouldEqual matchedPairs.length
+          //        partitionPairs.distinct.length shouldEqual matchedPairs.length
+          partitionPairs should contain allElementsOf matchedPairs
+      }
 
-    }
-
-    it should "assure that each pair is matched exactly once" in {
-        val bucketVals = sc.parallelize(List.range(0, 5))
-        val matchedPairs = bucketVals.cartesian(bucketVals)
-          //getting rid of reflexive comparison
-          .filter{case(x,c) => x!=c}
-          //making order not matter (i.e. (1,3) == (3,1)
-          .map{case(x,c) => if (x>c)(c,x) else (x,c)}.sortByKey()
-          //getting rid of copies
-          .distinct().collect().toList
-        matchedPairs.foreach(println)
-        val partitionLists = partitioner.equallyPartitionTasksByKey(5)
-        val partitionPairs = partitionLists.flatMap{case (x, b) => b.map(c => (x,c))}.map{case(x,c) => if (x>c)(c,x) else (x,c)}
-        partitionPairs.length shouldEqual matchedPairs.length
-        partitionPairs should contain allElementsOf matchedPairs
     }
 
 

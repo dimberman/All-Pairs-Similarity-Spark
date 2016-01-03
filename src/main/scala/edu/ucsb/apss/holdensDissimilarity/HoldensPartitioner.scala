@@ -76,7 +76,7 @@ class HoldensPartitioner extends Serializable {
         val masters: List[Int] = List.range(0, numBuckets)
         masters.map(
             m =>
-                m % 2 match {
+                numBuckets % 2 match {
                     case 1 =>
                         val e = List.range(m + 1, (m + 1) + (numBuckets - 1) / 2)
                         val c = e.map(_ % numBuckets)
@@ -85,7 +85,7 @@ class HoldensPartitioner extends Serializable {
                         if (m < numBuckets / 2)
                             (m, List.range(m + 1, (m + 1) + numBuckets / 2).map(_ % numBuckets))
                         else {
-                            val x = (m + 1) + numBuckets / 2
+                            val x = (m + 1)  + numBuckets / 2 - 1
                             val e = List.range(m + 1, x)
                             val c = e.map(_ % numBuckets)
                             (m, c)
