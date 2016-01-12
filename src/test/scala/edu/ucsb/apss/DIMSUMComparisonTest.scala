@@ -14,23 +14,23 @@ import scala.io.Source
 class DIMSUMComparisonTest extends FlatSpec with Matchers with BeforeAndAfter {
     val sc = Context.sc
 
-    "DIMSUM" should "return the sample tweets as pairs by similarity" in {
-        //        val text = sc.textFile("src/test/resources/edu/ucsb/apss/sampleTweetVectors.txt")
-        val text = sc.textFile("src/test/resources/edu/ucsb/apss/tinyTweetSample.txt")
-
-        val vectors: RDD[Vector] = text.map(BagOfWordToVectorConverter.convert)
-        //        val vectors: RDD[Vector] = text.map(_.split(" ").map(_.toDouble)).map(new DenseVector(_))
-        val d = text.collect()
-        val b = vectors.collect()
-        //        val mat = new RowMatrix(vectors, vectors.count(), 1048576)
-        val mat = new RowMatrix(vectors)
-
-        val a = mat.columnSimilarities(.1)
-        val exactEntries = a.entries.map { case MatrixEntry(i, j, u) => (u, (i, j)) }
-        exactEntries.sortByKey(false).foreach(println)
-
-
-    }
+//    "DIMSUM" should "return the sample tweets as pairs by similarity" in {
+//        //        val text = sc.textFile("src/test/resources/edu/ucsb/apss/sampleTweetVectors.txt")
+//        val text = sc.textFile("src/test/resources/edu/ucsb/apss/tinyTweetSample.txt")
+//
+//        val vectors: RDD[Vector] = text.map(BagOfWordToVectorConverter.convert)
+//        //        val vectors: RDD[Vector] = text.map(_.split(" ").map(_.toDouble)).map(new DenseVector(_))
+//        val d = text.collect()
+//        val b = vectors.collect()
+//        //        val mat = new RowMatrix(vectors, vectors.count(), 1048576)
+//        val mat = new RowMatrix(vectors)
+//
+//        val a = mat.columnSimilarities(.1)
+//        val exactEntries = a.entries.map { case MatrixEntry(i, j, u) => (u, (i, j)) }
+//        exactEntries.sortByKey(false).foreach(println)
+//
+//
+//    }
 
 
     def transposeRowMatrix(m: RowMatrix): RowMatrix = {

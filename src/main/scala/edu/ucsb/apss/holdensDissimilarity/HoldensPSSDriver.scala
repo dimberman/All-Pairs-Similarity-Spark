@@ -19,7 +19,11 @@ class HoldensPSSDriver {
         partitioner.tieVectorsToHighestBuckets(partitionedVectors, bucketLeaders, threshold, sc)
 
         val assignments = partitioner.createPartitioningAssignments(numBuckets)
-        val tasks = partitioner.turnAssignmentsIntoRDDs(assignments, partitionedVectors)
+        //TODO test that this will guarantee that all key values will be placed into a single partition
+        val tasks = partitioner.prepareTasksForParallelization(partitionedVectors, assignments).repartition(numBuckets)
+          //this gets rid of unneccessary assignment once partitioning is complete
+          .map(_._2)
+
 
 
 

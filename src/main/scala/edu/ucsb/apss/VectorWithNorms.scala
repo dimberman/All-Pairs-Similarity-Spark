@@ -9,7 +9,7 @@ case class VectorWithNorms(lInf: Double, l1: Double, vector: SparseVector, index
 
 object VectorWithNorms {
     def apply(b: (Double, Double, SparseVector)): VectorWithNorms = {
-        VectorWithNorms(b._1, b._2, b._3)
+        VectorWithNorms(b._1, b._2, b._3, -1)
     }
 }
 
