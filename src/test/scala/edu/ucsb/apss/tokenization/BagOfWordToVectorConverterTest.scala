@@ -8,7 +8,7 @@ import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
   * Created by dimberman on 12/24/15.
   */
 class BagOfWordToVectorConverterTest extends FlatSpec with Matchers with BeforeAndAfter {
-    val converter = new BagOfWordToVectorConverter
+    val converter = BagOfWordToVectorConverter
     "The converter" should "read in a series of space delimited integers and convert them into a SparseVector" in {
         val input = "1 2 3 4 4"
         val convertedVector = converter.convert(input)

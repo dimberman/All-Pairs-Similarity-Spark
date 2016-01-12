@@ -10,7 +10,7 @@ import org.apache.spark.mllib.linalg.SparseVector
   * This class is specifically meant for taking in the pre-processed Bag-of-word data for tweets and turning them into SparseVectors
   * for usage in Spark
   */
-class BagOfWordToVectorConverter extends Serializable{
+object BagOfWordToVectorConverter extends Serializable{
     def convert(s: String) = {
         val hash = new HashingTF()
         val split = s.split(" ").map(_.toInt)

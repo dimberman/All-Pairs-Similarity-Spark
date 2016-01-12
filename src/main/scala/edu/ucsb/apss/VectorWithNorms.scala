@@ -5,13 +5,16 @@ import org.apache.spark.mllib.linalg.SparseVector
 /**
   * Created by dimberman on 1/2/16.
   */
-case class NormalizedVector(lInf: Double, l1: Double, vector: SparseVector, var associatedLeader: Int = -1) extends Serializable
+case class VectorWithNorms(lInf: Double, l1: Double, vector: SparseVector, index:Int, var associatedLeader: Int = -1) extends Serializable
 
-object NormalizedVector {
-    def apply(b: (Double, Double, SparseVector)): NormalizedVector = {
-        NormalizedVector(b._1, b._2, b._3)
+object VectorWithNorms {
+    def apply(b: (Double, Double, SparseVector)): VectorWithNorms = {
+        VectorWithNorms(b._1, b._2, b._3)
     }
 }
+
+
+
 
 case class BucketAlias(maxLinf: Double, minLinf: Double, maxL1: Double, minL1: Double) extends Serializable {
 

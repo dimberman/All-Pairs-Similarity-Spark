@@ -8,7 +8,7 @@ import org.apache.spark.rdd.RDD
   * Created by dimberman on 12/7/15.
   */
 class TweetToVectorConverter extends Serializable{
-  val table = new HashingTF
+  val table = new HashingTF(10000)
 
   def generateTfWeights(s:RDD[String]) = {
     table.transform(s.map(a => a.split(" ").toSeq))

@@ -6,3 +6,6 @@ package edu.ucsb.apss
 
 //TODO give these better names
 case class BucketMapping(name:Int, values:List[Int])
+
+
+

@@ -1,6 +1,6 @@
 package edu.ucsb.apss.holdensDissimilarity
 
-import edu.ucsb.apss.Context
+import edu.ucsb.apss.{VectorWithNorms, BucketMapping, Context}
 import org.apache.spark.mllib.linalg.SparseVector
 import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
 
@@ -115,14 +115,26 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
             //getting rid of copies
             .distinct().collect().toList
 //          matchedPairs.foreach(println)
-          val partitionLists = partitioner.equallyPartitionTasksByKey(i).map(a => (a.name, a.values))
-          val partitionPairs = partitionLists.flatMap{case (x, b) => b.map(c => (x,c))}.map{case(x,c) => if (x>c)(c,x) else (x,c)}
+          val partitionLists = partitioner.createPartitioningAssignments(i).map(a => (a.name, a.values))
+          val partitionPairs = partitionLists
+            .flatMap{case (x, b) => b.map(c => (x,c))}
+            .map{case(x,c) => if (x>c)(c,x) else (x,c)}
           partitionPairs.length shouldEqual matchedPairs.length
           //        partitionPairs.distinct.length shouldEqual matchedPairs.length
           partitionPairs should contain allElementsOf matchedPairs
       }
 
     }
+
+
+//    "turnAssignmentsIntoRDDs" should "only return the RDDs with keys linked to the bucketValues" in {
+//        val n = VectorWithNorms(-1, -1, new SparseVector(4, indices, Array(0.41, 0.68, 0.85)))
+//        val testNormalizedRDD = sc.parallelize(Seq((1,n),(2,n), (4,n), (5,n)))
+//        val testBucketVal = List(BucketMapping(1, List(2,4)),BucketMapping(1, List(2,5)))
+//        val assigned = partitioner.turnAssignmentsIntoRDDs(testBucketVal, testNormalizedRDD)
+//        val results = assigned.map{case (name, v) => (name, v.collect().map(_._1))}
+//        results.head._2 shouldEqual Array(2,4)
+//    }
 
 
 }
