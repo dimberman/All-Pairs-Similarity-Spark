@@ -1,4 +1,4 @@
-package edu.ucsb.apss.holdensDissimilarity
+package edu.ucsb.apss.ColumnDissimilarity
 
 /**
   * Created by dimberman on 1/6/16.

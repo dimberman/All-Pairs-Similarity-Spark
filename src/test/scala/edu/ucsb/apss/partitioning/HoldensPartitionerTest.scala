@@ -1,9 +1,8 @@
-package edu.ucsb.apss.holdensDissimilarity
+package edu.ucsb.apss.partitioning
 
-import edu.ucsb.apss.partitioning.HoldensPartitioner
-import edu.ucsb.apss.{VectorWithNorms, BucketMapping, Context}
+import edu.ucsb.apss.Context
 import org.apache.spark.mllib.linalg.SparseVector
-import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
+import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 /**
   * Created by dimberman on 12/10/15.
@@ -81,12 +80,19 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
         val leaders = partitioner.determineBucketLeaders(bucketizedVectors).collect().sortBy(a => a._1)
         val threshold = 1.5
         val tiedVectors = partitioner.tieVectorsToHighestBuckets(bucketizedVectors, leaders, threshold, sc)
-        leaders.foreach{case (bucket, value) => println(s"leader for bucket $bucket: $value") }
-        tiedVectors.foreach {
-            case (bucketName, dr) =>
-//                println(s"In bucket $bucketName ${dr.lInf} is tied to leader ${dr.associatedLeader} with a tmax ${threshold/dr.lInf}")
+//        leaders.foreach{case (bucket, v) => println(s"leader for bucket $bucket: $v") }
+        val collectedVectors = tiedVectors.collect()
+        collectedVectors.foreach {
+            case (bucketIndex, dr) =>
+                threshold/dr.lInf should be > leaders(dr.associatedLeader)._2
+                if(dr.associatedLeader != bucketIndex-1 && !(bucketIndex == 0 && dr.associatedLeader == 0)){
+//                    println(s"comparing ${dr.associatedLeader} in bucket $bucketIndex with tmax ${threshold/dr.lInf}")
+                    threshold/dr.lInf should be < leaders(dr.associatedLeader+1)._2
+                }
+
         }
     }
+
 
     def truncateAt(n: Double, p: Int): Double = {
         val s = math pow(10, p);

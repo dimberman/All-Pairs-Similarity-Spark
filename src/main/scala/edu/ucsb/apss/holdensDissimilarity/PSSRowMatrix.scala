@@ -1,5 +1,6 @@
 package edu.ucsb.apss.holdensDissimilarity
 
+import edu.ucsb.apss.ColumnDissimilarity.ColumnSummary
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry, RowMatrix}
 import org.apache.spark.mllib.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.rdd.RDD

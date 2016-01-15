@@ -1,4 +1,4 @@
-package edu.ucsb.apss.holdensDissimilarity
+package edu.ucsb.apss.ColumnDissimilarity
 
 import org.apache.spark.Partitioner
 

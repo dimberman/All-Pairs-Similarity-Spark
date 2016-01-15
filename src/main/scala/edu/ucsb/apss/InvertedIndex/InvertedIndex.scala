@@ -21,6 +21,11 @@ object InvertedIndex {
 
 
     def addInvertedIndexes:(InvertedIndex, Array[(Int,List[FeaturePair])]) => InvertedIndex = (a, b) => InvertedIndex.merge(a, new InvertedIndex(b.toMap))
+
+
+
+
+
     def mergeInvertedIndexes:(InvertedIndex, InvertedIndex) => InvertedIndex = (a, b) => InvertedIndex.merge(a, b)
 
 

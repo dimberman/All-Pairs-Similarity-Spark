@@ -14,49 +14,54 @@ import scala.collection.mutable.ListBuffer
   * Created by dimberman on 1/3/16.
   */
 class HoldensPSSDriver {
+
+
+
     def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double) = {
         val count = vectors.count
         val partitioner = new HoldensPartitioner
 
         val partitionedVectors = partitioner.partitionByL1Norm(vectors, numBuckets, count).persist()
+
         val bucketLeaders = partitioner.determineBucketLeaders(partitionedVectors).collect()
+
         //TODO should I modify this so that it uses immutable objects?
         partitioner.tieVectorsToHighestBuckets(partitionedVectors, bucketLeaders, threshold, sc)
 
         val invIndexes = partitionedVectors.map { case (a, v) => (a, createFeaturePairs(a, v)) }
-          //TODO it would be more efficient to not create a new object for every add
+          //TODO it would be more efficient to not create a new object for every add, otherwise I'm just basically doing a reduce
           .aggregateByKey(InvertedIndex())(
             addInvertedIndexes,
             mergeInvertedIndexes
-        ).map { case (a, b) => (a, (b, a)) }
-        //TODO Save inverted indices to hbase
-        //invIndexes.saveAsHadoopDataset()
+        ).map { case (x, b) => (x, (b, x)) }
 
 
         val assignments = partitioner.createPartitioningAssignments(numBuckets)
+
         //TODO test that this will guarantee that all key values will be placed into a single partition
         //TODO this function would be the perfect point to filter the values via static partitioning
         val partitionedTasks = partitioner.prepareTasksForParallelization(partitionedVectors, assignments).groupByKey().join(invIndexes)
 
 
         val a = partitionedTasks.mapValues {
-            case (vecs, (i, bucket)) =>
-                val invertedIndex = i.indices
-                vecs.map {
+            case (externalVectors, (invIndx, bucketID)) =>
+                val invertedIndex = invIndx.indices
+                externalVectors.map {
                     case (buck, v) =>
-                        val scores = Array[Double](vecs.size)
-                        var r = v.l1
-                        val d_i = invertedIndex.filter(a => v.vector.indices.contains(a._1))
-                        val d_j = v.vector.indices.flatMap(ind => if (d_i.contains(ind)) Some((ind, v.vector.values(ind))) else None)
+                        val scores = Array[Double](externalVectors.size)
+                        var (r_j, vec) = (v.l1, v.vector)
+                        val d_i = invertedIndex.filter(a => vec.indices.contains(a._1))
+                        val d_j = vec.indices.flatMap(ind => if (d_i.contains(ind)) Some((ind, vec.values(ind))) else None)
+
                         d_j.foreach {
                             case (ind_j, weight_j) =>
                                 d_i(ind_j).foreach {
                                     case (featurePair) => {
                                         val (ind_i, weight_i) = (featurePair.id, featurePair.weight)
-                                        if (!(scores(ind_i) + v.lInf * r < threshold)) scores(ind_j) += weight_i * weight_j
+                                        if (!(scores(ind_i) + v.lInf * r_j < threshold)) scores(ind_j) += weight_i * weight_j
                                     }
                                 }
-                                r -= weight_j
+                                r_j -= weight_j
                         }
                         scores.zipWithIndex.filter(_._1>threshold).map{case(score, ind_i) => (ind_i, buck, score)}
                 }
