@@ -1,6 +1,7 @@
-package edu.ucsb.apss.bucketization
+package edu.ucsb.apss.lsh
 
-import org.apache.spark.mllib.linalg.{Vector, SparseVector}
+import edu.ucsb.apss.lsh.VectorBucketizer
+import org.apache.spark.mllib.linalg.{SparseVector, Vector}
 
 /**
   * Created by dimberman on 12/6/15.

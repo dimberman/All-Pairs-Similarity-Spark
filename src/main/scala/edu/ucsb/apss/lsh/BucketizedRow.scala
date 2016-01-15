@@ -1,4 +1,5 @@
-package edu.ucsb.apss.bucketization
+package edu.ucsb.apss.lsh
+
 import org.apache.spark.mllib.linalg.SparseVector
 
 /**

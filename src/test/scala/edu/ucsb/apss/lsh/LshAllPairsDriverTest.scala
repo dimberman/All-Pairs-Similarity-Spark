@@ -1,9 +1,9 @@
-package edu.ucsb.apss.bucketization
+package edu.ucsb.apss.lsh
 
 import edu.ucsb.apss.Context
-import edu.ucsb.apss.tokenization.TweetToVectorConverter
-import org.apache.spark.rdd.RDD
-import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
+import edu.ucsb.apss.lsh.SparseVectorBucketizer
+import edu.ucsb.apss.preprocessing.TweetToVectorConverter
+import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 /**
   * Created by dimberman on 12/7/15.

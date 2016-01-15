@@ -1,6 +1,7 @@
 package edu.ucsb.apss.bucketization
 
-import edu.ucsb.apss.tokenization.TweetToVectorConverter
+import edu.ucsb.apss.lsh.SparseVectorBucketizer
+import edu.ucsb.apss.preprocessing.TweetToVectorConverter
 import org.apache.spark.mllib.linalg.SparseVector
 
 import org.scalatest.{Matchers, BeforeAndAfter, FlatSpec}

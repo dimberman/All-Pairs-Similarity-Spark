@@ -1,10 +1,8 @@
 package edu.ucsb.apss.holdensDissimilarity
 
-import org.apache.spark.annotation.Since
+import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry, RowMatrix}
 import org.apache.spark.mllib.linalg.{DenseVector, SparseVector, Vector}
-import org.apache.spark.mllib.linalg.distributed.{MatrixEntry, CoordinateMatrix, RowMatrix}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.random.XORShiftRandom
 
 import scala.collection.mutable.ListBuffer
 

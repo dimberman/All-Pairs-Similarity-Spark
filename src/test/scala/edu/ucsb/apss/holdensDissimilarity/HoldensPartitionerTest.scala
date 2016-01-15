@@ -1,5 +1,6 @@
 package edu.ucsb.apss.holdensDissimilarity
 
+import edu.ucsb.apss.partitioning.HoldensPartitioner
 import edu.ucsb.apss.{VectorWithNorms, BucketMapping, Context}
 import org.apache.spark.mllib.linalg.SparseVector
 import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}

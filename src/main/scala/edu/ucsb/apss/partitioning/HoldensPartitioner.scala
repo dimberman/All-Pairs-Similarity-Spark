@@ -1,6 +1,7 @@
-package edu.ucsb.apss.holdensDissimilarity
+package edu.ucsb.apss.partitioning
 
-import edu.ucsb.apss.{BucketMapping, BucketAlias, VectorWithNorms}
+import edu.ucsb.apss.partitioning.Partitioner
+import edu.ucsb.apss.{BucketAlias, VectorWithNorms}
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
@@ -8,7 +9,7 @@ import org.apache.spark.rdd.RDD
 /**
   * Created by dimberman on 12/10/15.
   */
-class HoldensPartitioner extends Serializable with HoldensCosineCalculator {
+class HoldensPartitioner extends Serializable with Partitioner {
     //    val l1Norm = new Normalizer(p = 1)
     //    val lInfNorm = new Normalizer(p = Double.PositiveInfinity)
 

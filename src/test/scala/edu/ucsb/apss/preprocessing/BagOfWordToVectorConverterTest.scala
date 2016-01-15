@@ -1,4 +1,4 @@
-package edu.ucsb.apss.tokenization
+package edu.ucsb.apss.preprocessing
 
 import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
 import org.apache.spark.mllib.linalg.SparseVector

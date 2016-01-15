@@ -1,4 +1,4 @@
-package edu.ucsb.apss.tokenization
+package edu.ucsb.apss.preprocessing
 
 import org.apache.spark.mllib.feature.HashingTF
 import org.apache.spark.mllib.linalg.SparseVector

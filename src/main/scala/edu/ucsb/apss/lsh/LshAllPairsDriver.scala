@@ -1,6 +1,7 @@
-package edu.ucsb.apss.bucketization
+package edu.ucsb.apss.lsh
 
-import edu.ucsb.apss.tokenization.TweetToVectorConverter
+import edu.ucsb.apss.lsh.BucketizedRow
+import edu.ucsb.apss.preprocessing.TweetToVectorConverter
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD

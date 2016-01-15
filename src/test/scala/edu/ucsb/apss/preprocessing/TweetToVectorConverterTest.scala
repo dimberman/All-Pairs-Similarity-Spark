@@ -1,4 +1,4 @@
-package edu.ucsb.apss.tokenization
+package edu.ucsb.apss.preprocessing
 
 import edu.ucsb.apss.Context
 

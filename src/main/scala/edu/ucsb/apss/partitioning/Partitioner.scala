@@ -1,14 +1,13 @@
-package edu.ucsb.apss.holdensDissimilarity
+package edu.ucsb.apss.partitioning
 
 import edu.ucsb.apss.BucketMapping
-import edu.ucsb.apss.bucketization.SparseVectorBucketizer
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 
 /**
   * Created by dimberman on 1/12/16.
   */
-trait HoldensCosineCalculator {
+trait Partitioner {
 
     /**
       * This function will allow me to partition based on the BucketMappings and perform manual load balancing.

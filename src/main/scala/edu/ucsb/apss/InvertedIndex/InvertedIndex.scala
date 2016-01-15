@@ -20,6 +20,11 @@ object InvertedIndex {
 //    }
 
 
+    def addInvertedIndexes:(InvertedIndex, Array[(Int,List[FeaturePair])]) => InvertedIndex = (a, b) => InvertedIndex.merge(a, new InvertedIndex(b.toMap))
+    def mergeInvertedIndexes:(InvertedIndex, InvertedIndex) => InvertedIndex = (a, b) => InvertedIndex.merge(a, b)
+
+
+
     def createFeaturePairs(a:(Int, VectorWithNorms)) = {
         val (docId, vector ) = a
         vector.vector.indices.map(i => (i, List(FeaturePair(docId, vector.vector(i)))))
@@ -34,8 +39,8 @@ object InvertedIndex {
     }
 
 
-    private def addMapWithListValue[A, B](a: Map[A, B], kv: (A,Array[B]))(f: (B, B) => B): Map[A, B] =
-            a + (if (a.contains(kv._1)) kv._1 -> f(a(kv._1), kv._2) else (kv._1, kv._2))
+//    private def addMapWithListValue[A, B](a: Map[A, B], kv: (A,Array[B]))(f: (B, B) => B): Map[A, B] =
+//            a + (if (a.contains(kv._1)) kv._1 -> f(a(kv._1), kv._2) else (kv._1, kv._2))
 
 
 

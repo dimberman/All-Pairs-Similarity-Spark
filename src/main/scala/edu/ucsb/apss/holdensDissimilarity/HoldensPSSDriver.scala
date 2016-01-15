@@ -1,7 +1,8 @@
 package edu.ucsb.apss.holdensDissimilarity
 
-import edu.ucsb.apss.InvertedIndex.{FeaturePair, InvertedIndex}
-import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
+import edu.ucsb.apss.InvertedIndex.InvertedIndex._
+import edu.ucsb.apss.InvertedIndex.InvertedIndex
+import edu.ucsb.apss.partitioning.HoldensPartitioner
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
@@ -22,7 +23,7 @@ class HoldensPSSDriver {
         //TODO should I modify this so that it uses immutable objects?
         partitioner.tieVectorsToHighestBuckets(partitionedVectors, bucketLeaders, threshold, sc)
 
-        val invIndexes = partitionedVectors.map { case (a, v) => (a, InvertedIndex.createFeaturePairs(a, v)) }
+        val invIndexes = partitionedVectors.map { case (a, v) => (a, createFeaturePairs(a, v)) }
           //TODO it would be more efficient to not create a new object for every add
           .aggregateByKey(InvertedIndex())(
             addInvertedIndexes,
@@ -63,8 +64,6 @@ class HoldensPSSDriver {
 
 
 
-        def addInvertedIndexes:(InvertedIndex, Array[(Int,List[FeaturePair])]) => InvertedIndex = (a, b) => InvertedIndex.merge(a, new InvertedIndex(b.toMap))
-        def mergeInvertedIndexes:(InvertedIndex, InvertedIndex) => InvertedIndex = (a, b) => InvertedIndex.merge(a, b)
 
 
         //        partitionedTasks.mapPartitions(
