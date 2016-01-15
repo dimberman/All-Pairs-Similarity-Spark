@@ -11,7 +11,7 @@ import org.apache.spark.mllib.linalg.SparseVector
 case class InvertedIndex(indices: Map[Int, List[FeaturePair]])
 
 object InvertedIndex {
-    def merge(a: InvertedIndex, b: InvertedIndex): InvertedIndex = {
+    private def merge(a: InvertedIndex, b: InvertedIndex): InvertedIndex = {
         InvertedIndex(mergeMap(a.indices,b.indices)((v1,v2) => v1++v2))
     }
 
@@ -39,6 +39,10 @@ object InvertedIndex {
         new InvertedIndex(createFeaturePairs(a).toMap)
     }
 
+    def apply(a:List[(Int,List[FeaturePair])])= new InvertedIndex(a.toMap)
+//    def apply(a:(Int,List[FeaturePair]))= new InvertedIndex(Map(a))
+
+
     def apply() = {
         new InvertedIndex(Map())
     }
@@ -50,9 +54,9 @@ object InvertedIndex {
 
 
     private def mergeMap[A, B](a: Map[A, B], b: Map[A, B])(f: (B, B) => B): Map[A, B] =
-        (Map[A, B]() /: (for (kv <- b) yield kv)) {
-            (a, kv) =>
-                a + (if (a.contains(kv._1)) kv._1 -> f(a(kv._1), kv._2) else kv)
+        (a /: (for (kv <- b) yield kv)) {
+            (c, kv) =>
+                c + (if (a.contains(kv._1)) kv._1 -> f(c(kv._1), kv._2) else kv)
         }
 }
 

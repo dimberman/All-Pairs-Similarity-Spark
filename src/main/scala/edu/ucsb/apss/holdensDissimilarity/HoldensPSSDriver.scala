@@ -28,10 +28,9 @@ class HoldensPSSDriver {
         //TODO should I modify this so that it uses immutable objects?
         partitioner.tieVectorsToHighestBuckets(partitionedVectors, bucketLeaders, threshold, sc)
 
-        val invIndexes = partitionedVectors.map { case (a, v) => (a, createFeaturePairs(a, v)) }
-          //TODO it would be more efficient to not create a new object for every add, otherwise I'm just basically doing a reduce
-          .aggregateByKey(InvertedIndex())(
-            addInvertedIndexes,
+        val invIndexes = partitionedVectors.map { case (ind, v) => (ind, InvertedIndex(createFeaturePairs(ind, v).toList)) }
+          //TODO would it be more efficient to do an aggregate?
+          .reduceByKey(
             mergeInvertedIndexes
         ).map { case (x, b) => (x, (b, x)) }
 
@@ -52,7 +51,6 @@ class HoldensPSSDriver {
                         var (r_j, vec) = (v.l1, v.vector)
                         val d_i = invertedIndex.filter(a => vec.indices.contains(a._1))
                         val d_j = vec.indices.flatMap(ind => if (d_i.contains(ind)) Some((ind, vec.values(ind))) else None)
-
                         d_j.foreach {
                             case (ind_j, weight_j) =>
                                 d_i(ind_j).foreach {
