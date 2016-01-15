@@ -92,9 +92,7 @@ object LshAllPairsDriver {
     def bucketizedCosineSimilarity(input: RDD[BucketizedRow]): CoordinateMatrix = {
         val n = input.count().toInt
 
-        input.collect().foreach(a => println(a.summary.tmax))
-        println("sums")
-        input.collect().foreach(a => println(a.summary.colSum))
+
 
         val sortedBytMax = input.map(_.summary).sortBy { case (tmax) => tmax.tmax }.collect()
 
@@ -122,9 +120,7 @@ object LshAllPairsDriver {
             }
 
         )
-        val c = sims.collect()
-        println("sadg")
-//        val rSim = sims.reduceByKey(_ + _)
+
         val mSim = sims.map { case ((i, j), sim) =>
             MatrixEntry(i.toLong, j.toLong, sim)
         }

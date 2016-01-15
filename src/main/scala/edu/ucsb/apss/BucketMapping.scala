@@ -5,7 +5,7 @@ package edu.ucsb.apss
   */
 
 //TODO give these better names
-case class BucketMapping(name:Int, values:List[Int])
+case class BucketMapping(taskBucket:Int, values:Set[Int])
 
 
 

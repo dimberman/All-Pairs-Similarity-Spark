@@ -41,13 +41,8 @@ class HoldensPartitioner extends Serializable with HoldensCosineCalculator {
 
     def partitionByL1Norm(r: RDD[SparseVector], numBuckets: Int, numVectors: Long): RDD[(Int, VectorWithNorms)] = {
         val a = r.collect()
-        val sorted = sortByl1Norm(r)
-        val x = sorted.collect()
-        println("foo")
-         val normalized = sorted .map(f => VectorWithNorms(lInfNorm(f._2), f._1, f._2))
-        val b = normalized.collect()
-        println("hello")
-        normalized.zipWithIndex().map { case (vector, index) => ((index / (numVectors / numBuckets)).toInt, vector) }
+        val sorted = sortByl1Norm(r).map(f => VectorWithNorms(lInfNorm(f._2), f._1, f._2))
+        sorted.zipWithIndex().map { case (vector, index) => ((index / (numVectors / numBuckets)).toInt, vector) }
     }
 
 

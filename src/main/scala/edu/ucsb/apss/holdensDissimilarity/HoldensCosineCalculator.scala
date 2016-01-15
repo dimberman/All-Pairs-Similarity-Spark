@@ -1,6 +1,8 @@
 package edu.ucsb.apss.holdensDissimilarity
 
 import edu.ucsb.apss.BucketMapping
+import edu.ucsb.apss.bucketization.SparseVectorBucketizer
+import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 
 /**
@@ -20,7 +22,7 @@ trait HoldensCosineCalculator {
         val BVBucketValues = r.context.broadcast(bucketValues)
         r.flatMap {
             case(bucket, v) =>
-                BVBucketValues.value.flatMap(m => if (m.values.contains(bucket)) Some((m.name, (bucket, v))) else None)
+                BVBucketValues.value.flatMap(m => if (m.values.contains(bucket)) Some((m.taskBucket, (bucket, v))) else None)
         }
     }
 
@@ -33,18 +35,23 @@ trait HoldensCosineCalculator {
                     case 1 =>
                         val e = List.range(m + 1, (m + 1) + (numBuckets - 1) / 2)
                         val c = e.map(_ % numBuckets)
-                        BucketMapping(m, c)
+                        BucketMapping(m, c.toSet)
                     case 0 =>
                         if (m < numBuckets / 2)
-                            BucketMapping(m, List.range(m + 1, (m + 1) + numBuckets / 2).map(_ % numBuckets))
+                            BucketMapping(m, List.range(m + 1, (m + 1) + numBuckets / 2).map(_ % numBuckets).toSet)
                         else {
                             val x = (m + 1)  + numBuckets / 2 - 1
                             val e = List.range(m + 1, x)
                             val c = e.map(_ % numBuckets)
-                            BucketMapping(m, c)
+                            BucketMapping(m, c.toSet)
                         }
                 }
         )
+    }
+
+
+    def writeInvertedIndexesToHDFS(r:RDD[(Int, SparseVector)]) = {
+
     }
 
 }
