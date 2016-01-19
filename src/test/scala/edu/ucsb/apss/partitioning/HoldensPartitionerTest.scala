@@ -85,7 +85,7 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
         collectedVectors.foreach {
             case (bucketIndex, dr) =>
                 threshold/dr.lInf should be > leaders(dr.associatedLeader)._2
-                if(dr.associatedLeader != bucketIndex-1 && !(bucketIndex == 0 && dr.associatedLeader == 0)){
+                if(dr.associatedLeader != bucketIndex-1 &&  bucketIndex!= dr.associatedLeader){
 //                    println(s"comparing ${dr.associatedLeader} in bucket $bucketIndex with tmax ${threshold/dr.lInf}")
                     threshold/dr.lInf should be < leaders(dr.associatedLeader+1)._2
                 }
@@ -112,11 +112,11 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
     }
 
     "equallyPartitionTasksByKey" should "assure that each pair is matched exactly once" in {
-      for(i <- 2 to 25){
+      for(i <- 1 to 25){
           val bucketVals = sc.parallelize(List.range(0, i))
           val matchedPairs = bucketVals.cartesian(bucketVals)
             //getting rid of reflexive comparison
-            .filter{case(x,c) => x!=c}
+//            .filter{case(x,c) => x!=c}
             //making order not matter (i.e. (1,3) == (3,1)
             .map{case(x,c) => if (x>c)(c,x) else (x,c)}.sortByKey()
             //getting rid of copies

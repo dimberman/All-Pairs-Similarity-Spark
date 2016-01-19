@@ -21,8 +21,8 @@ class HoldensPartitioner extends Serializable with Partitioner {
         v.values.map(math.abs).max
     }
 
-    def sortByl1Norm(r: RDD[SparseVector]) = {
-        r.map(a => (l1Norm(a), a)).sortByKey(true)
+    def sortByl1Norm(r: RDD[(SparseVector, Long)]) = {
+        r.map(a => (l1Norm(a._1), a)).sortByKey(true)
     }
 
     def sortBylinfNorm(r: RDD[SparseVector]) = {
@@ -33,8 +33,8 @@ class HoldensPartitioner extends Serializable with Partitioner {
 
 
     def partitionByL1Norm(r: RDD[SparseVector], numBuckets: Int, numVectors: Long): RDD[(Int, VectorWithNorms)] = {
-        val a = r.collect()
-        val sorted = sortByl1Norm(r).map(f => VectorWithNorms(lInfNorm(f._2), f._1, f._2))
+//        val a = r.collect()
+        val sorted = sortByl1Norm(r.zipWithIndex()).map(f => VectorWithNorms(lInfNorm(f._2._1), l1Norm(f._2._1), f._2._1, f._2._2))
         sorted.zipWithIndex().map { case (vector, index) => ((index / (numVectors / numBuckets)).toInt, vector) }
     }
 

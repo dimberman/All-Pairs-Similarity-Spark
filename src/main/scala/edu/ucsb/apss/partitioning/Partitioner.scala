@@ -32,16 +32,16 @@ trait Partitioner {
             m =>
                 numBuckets % 2 match {
                     case 1 =>
-                        val e = List.range(m + 1, (m + 1) + (numBuckets - 1) / 2)
+                        val e = List.range(m + 1, (m + 1) + (numBuckets - 1) / 2) :+m
                         val c = e.map(_ % numBuckets)
                         BucketMapping(m, c.toSet)
                     case 0 =>
                         if (m < numBuckets / 2)
-                            BucketMapping(m, List.range(m + 1, (m + 1) + numBuckets / 2).map(_ % numBuckets).toSet)
+                            BucketMapping(m, (List.range(m + 1, (m + 1) + numBuckets / 2).map(_ % numBuckets) :+m ) .toSet  )
                         else {
                             val x = (m + 1)  + numBuckets / 2 - 1
                             val e = List.range(m + 1, x)
-                            val c = e.map(_ % numBuckets)
+                            val c = e.map(_ % numBuckets):+m
                             BucketMapping(m, c.toSet)
                         }
                 }
