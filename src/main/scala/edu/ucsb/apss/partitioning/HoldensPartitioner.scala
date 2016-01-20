@@ -54,7 +54,7 @@ class HoldensPartitioner extends Serializable with Partitioner {
     }
 
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): RDD[(Int, Double)] = {
-        r.reduceByKey((a, b) => if (a.l1 > b.l1) a else b).mapValues(_.l1)
+        r.map{case(k,v) => (k, v.l1)}.reduceByKey(math.max)
     }
 
 
@@ -80,7 +80,6 @@ class HoldensPartitioner extends Serializable with Partitioner {
     def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, VectorWithNorms)], leaders: Array[(Int, Double)], threshold: Double, sc: SparkContext): RDD[(Int, VectorWithNorms)] = {
         //this step should reduce the amount of data that needs to be shuffled
         val lInfNormsOnly = inputVectors.mapValues(_.lInf)
-        //TODO would it be cheaper to pre-shuffle all the vectors into partitions and the mapPartition?
         val broadcastedLeaders = sc.broadcast(leaders)
         val buckets: RDD[Int] = lInfNormsOnly.map {
             case (bucket, norms) =>
