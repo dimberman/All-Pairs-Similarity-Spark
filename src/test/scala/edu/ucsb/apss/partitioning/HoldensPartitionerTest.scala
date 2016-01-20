@@ -61,7 +61,7 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
     }
 
     "partitionByL1Norm" should "partition values into buckets blah blha blah" in {
-        val bucketizedLargeVec = partitioner.partitionByL1Norm(testRDD, 4, 20)
+        val bucketizedLargeVec = partitioner.partitionByL1Sort(testRDD, 4, 20)
         bucketizedLargeVec.keys.distinct().count() shouldEqual 4
         val bucketSizes = bucketizedLargeVec.mapValues(a => 1).reduceByKey(_+_).values.collect()
         bucketSizes.foreach(_ shouldBe 5)
@@ -77,7 +77,7 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
 
 
     "determineBucketLeaders" should "determine the max l1 value for a bucket and match it to the corresponding key" in {
-        val bucketized = partitioner.partitionByL1Norm(testRDD, 4, 20)
+        val bucketized = partitioner.partitionByL1Sort(testRDD, 4, 20)
         val collected = bucketized.collect()
         val bucketLeaders = partitioner.determineBucketLeaders(bucketized).collect()
         val expected = Array((0, 1.13), (1, 1.53), (2, 1.97), (3, 2.68))
@@ -85,7 +85,7 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
     }
 
     "tieVectorsToHighestBuckets" should "take every vector and tie it to the bucket which has the closest but < leader to its lInf" in {
-        val bucketizedVectors = partitioner.partitionByL1Norm(testRDD, 4, 20)
+        val bucketizedVectors = partitioner.partitionByL1Sort(testRDD, 4, 20)
         val leaders = partitioner.determineBucketLeaders(bucketizedVectors).collect().sortBy(a => a._1)
         val threshold = 1.5
         val tiedVectors = partitioner.tieVectorsToHighestBuckets(bucketizedVectors, leaders, threshold, sc)
@@ -108,11 +108,11 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
         (math floor n * s) / s
     }
 //
-    it should "not go above the current bucket" in {
+    it should "correctly handle the case where there is only one bucket" in {
 
     }
 
-    it should "handle the case where there are no buckets less than" in {
+    it should "handle the case where the value is greater than the highest bucket" in {
 
     }
 

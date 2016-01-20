@@ -7,6 +7,8 @@ import edu.ucsb.apss.partitioning.HoldensPartitioner
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
+import collection.mutable.HashMap
+import scala.collection.mutable
 
 
 /**
@@ -19,14 +21,18 @@ class HoldensPSSDriver {
     def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double) = {
         val count = vectors.count
 
-        val partitionedVectors = partitioner.partitionByL1Norm(vectors, numBuckets, count).persist()
+        val partitionedVectors = partitioner.partitionByL1Sort(vectors, numBuckets, count).persist()
+//        val partitionedVectors = partitioner.partitionByL1GraySort(vectors, numBuckets, count).persist()
+
+        val p = partitionedVectors.collect()
 
         val bucketLeaders = partitioner.determineBucketLeaders(partitionedVectors).collect()
 
         //TODO should I modify this so that it uses immutable objects?
-        partitioner.tieVectorsToHighestBuckets(partitionedVectors, bucketLeaders, threshold, sc)
+        val bucketizedVectors = partitioner.tieVectorsToHighestBuckets(partitionedVectors, bucketLeaders, threshold, sc)
 
-        val invIndexes = partitionedVectors.map { case (ind, v) => (ind, InvertedIndex(createFeaturePairs(ind, v).toList)) }
+
+        val invIndexes = bucketizedVectors.map { case (ind, v) => (ind, InvertedIndex(createFeaturePairs(ind, v).toList)) }
           //TODO would it be more efficient to do an aggregate?
           .reduceByKey(
             mergeInvertedIndexes
@@ -35,8 +41,6 @@ class HoldensPSSDriver {
 
         val assignments = partitioner.createPartitioningAssignments(numBuckets)
 
-        //TODO test that this will guarantee that all key values will be placed into a single partition
-        //TODO this function would be the perfect point to filter the values via static partitioning
 
 
 //        val a = calculateCosineSimilarityUsingGroupByKey(partitionedVectors, invIndexes, assignments, threshold)
@@ -48,16 +52,24 @@ class HoldensPSSDriver {
 
 
     def calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedVectors: RDD[(Int, VectorWithNorms)], invIndexes: RDD[(Int, (InvertedIndex, Int))], assignments: List[BucketMapping], threshold: Double): RDD[(Int, (Int, Long, Double))] = {
-        val partitionedTasks = partitioner.prepareTasksForParallelization(partitionedVectors, assignments).cogroup(invIndexes)
 
+        //TODO test that this will guarantee that all key values will be placed into a single partition
+        //TODO this function would be the perfect point to filter the values via static partitioning
+
+        val partitionedTasks:RDD[(Int, (Iterable[(Int,VectorWithNorms)], Iterable[(InvertedIndex, Int)]))] = partitioner.prepareTasksForParallelization(partitionedVectors, assignments).cogroup(invIndexes)
+
+        val n = partitionedTasks.collect()
+        val b = 6
         val a: RDD[(Int, (Int, Long, Double))] = partitionedTasks.flatMapValues {
             case (vectors, i) =>
+                // there should only be one inverted index
+                //TODO should I require 1 or would that take up a lot of time?
                 val (inv, bucket) = i.head
-
                 val invertedIndex = inv.indices
                 val c = vectors.flatMap {
                     case (buck, v) =>
-                        val scores = new Array[Double](vectors.size)
+//                        val scores = new Array[Double](vectors.size)
+                        val scores = new mutable.HashMap[(Int, Long),Double]()  { override def default(key:(Int, Long)) = 0 }
                         var r_j = v.l1
                         val vec = v.vector
                         val d_i = invertedIndex.filter(a => vec.indices.contains(a._1))
@@ -81,13 +93,15 @@ class HoldensPSSDriver {
                                 d_i(feat).foreach {
                                     case (featurePair) => {
                                         val (ind_i, weight_i) = (featurePair.id, featurePair.weight)
-                                        if (!((scores(v.index.toInt) + v.lInf * r_j) < threshold))
-                                            scores(ind_i) += weight_i * weight_j
+                                        if (!((scores((ind_i, ind_j)) + v.lInf * r_j) < threshold))
+                                            scores((ind_i, ind_j)) += weight_i * weight_j
                                     }
                                 }
                                 r_j -= weight_j
                         }
-                        val s = scores.zipWithIndex.filter(_._1 > threshold).map { case (score, ind_i) => (ind_i, v.index, score) }
+//                        val s = scores.zipWithIndex.filter(_._1 > threshold).map { case (score, ind_i) => (ind_i, v.index, score) }
+                        val s = scores.toList.filter(_._2 > threshold).map{case(a,b) => (a._1, a._2, b)}
+
                         s.toList
                 }
                 c
@@ -99,6 +113,8 @@ class HoldensPSSDriver {
 
     def calculateCosineSimilarityUsingGroupByKey(partitionedVectors: RDD[(Int, VectorWithNorms)], invIndexes: RDD[(Int, (InvertedIndex, Int))], assignments: List[BucketMapping], threshold: Double): RDD[(Int, (Int, Long, Double))] = {
 
+        //TODO test that this will guarantee that all key values will be placed into a single partition
+        //TODO this function would be the perfect point to filter the values via static partitioning
 
         val partitionedTasks = partitioner.prepareTasksForParallelization(partitionedVectors, assignments).groupByKey().join(invIndexes)
 

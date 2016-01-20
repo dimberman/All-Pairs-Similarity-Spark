@@ -1,6 +1,6 @@
 package edu.ucsb.apss.partitioning
 
-import edu.ucsb.apss.BucketMapping
+import edu.ucsb.apss.{VectorWithNorms, BucketMapping}
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 
@@ -17,13 +17,16 @@ trait Partitioner {
       * @param bucketValues
       * @return
       */
-    def prepareTasksForParallelization[T](r:RDD[(Int, T)], bucketValues:List[BucketMapping]):RDD[(Int, (Int, T))] = {
+    def prepareTasksForParallelization(r:RDD[(Int, VectorWithNorms)], bucketValues:List[BucketMapping]):RDD[(Int, (Int, VectorWithNorms))] = {
         val BVBucketValues = r.context.broadcast(bucketValues)
         r.flatMap {
             case(bucket, v) =>
                 BVBucketValues.value.flatMap(m => if (m.values.contains(bucket)) Some((m.taskBucket, (bucket, v))) else None)
         }
     }
+
+
+//    def isCandidate()
 
 
     def createPartitioningAssignments(numBuckets: Int): List[BucketMapping] = {
