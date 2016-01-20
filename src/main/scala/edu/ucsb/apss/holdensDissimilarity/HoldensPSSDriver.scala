@@ -6,10 +6,8 @@ import edu.ucsb.apss.{BucketMapping, VectorWithNorms}
 import edu.ucsb.apss.partitioning.HoldensPartitioner
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.SparseVector
-import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD
 
-import scala.collection.mutable.ListBuffer
 
 /**
   * Created by dimberman on 1/3/16.
@@ -41,9 +39,8 @@ class HoldensPSSDriver {
         //TODO this function would be the perfect point to filter the values via static partitioning
 
 
-        //        val a: RDD[(Int, Iterable[Array[(Int, Long, Double)]])] = calculateCosineSimilarityUsingGroupByKey(partitionedVectors, invIndexes, assignments, threshold)
-
-        val a = calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedVectors, invIndexes, assignments, threshold)
+//        val a = calculateCosineSimilarityUsingGroupByKey(partitionedVectors, invIndexes, assignments, threshold)
+        val a:RDD[(Int, (Int, Long, Double))] = calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedVectors, invIndexes, assignments, threshold)
         a.map(_._2)
 
 
@@ -56,6 +53,7 @@ class HoldensPSSDriver {
         val a: RDD[(Int, (Int, Long, Double))] = partitionedTasks.flatMapValues {
             case (vectors, i) =>
                 val (inv, bucket) = i.head
+
                 val invertedIndex = inv.indices
                 val c = vectors.flatMap {
                     case (buck, v) =>

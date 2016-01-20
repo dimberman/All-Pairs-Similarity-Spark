@@ -107,8 +107,15 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
 
     }
 
+
+
     it should "set all associatedLeader values to a value other than -1"  in {
 
+    }
+
+
+    "ltBinarySearch" should "create a binary search from an array of integers" in {
+        partitioner.ltBinarySearch(List((1,.03),(2,.25),(3, .56),(4, .65),(5, .88)), .61) shouldBe 3
     }
 
     "equallyPartitionTasksByKey" should "assure that each pair is matched exactly once" in {

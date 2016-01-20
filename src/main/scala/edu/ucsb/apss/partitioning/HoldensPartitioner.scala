@@ -4,6 +4,9 @@ import edu.ucsb.apss.{BucketAlias, VectorWithNorms}
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
+import java.util
+
+import scala.reflect.ClassTag
 
 /**
   * Created by dimberman on 12/10/15.
@@ -44,6 +47,26 @@ class HoldensPartitioner extends Serializable with Partitioner {
     }
 
 
+
+     var binarySearch: ((Array[Int], Int) => Int) =
+        (l, x) => util.Arrays.binarySearch(l, x)
+
+
+    def ltBinarySearch(a: List[(Int, Double)], key:Double):Int = {
+            var low: Int = 0
+            var high: Int = a.length - 1
+            while (low <= high) {
+                val mid: Int = (low + high) >>> 1
+                val midVal: Double = a(mid)._2
+                if (midVal < key) low = mid + 1
+                else if (midVal > key) high = mid - 1
+                else return a(mid)._1
+            }
+            val mid: Int = (low + high) >>> 1
+            return a(mid)._1
+        }
+
+
     def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, VectorWithNorms)], leaders: Array[(Int, Double)], threshold: Double, sc: SparkContext): RDD[(Int, VectorWithNorms)] = {
         //this step should reduce the amount of data that needs to be shuffled
         val lInfNormsOnly = inputVectors.mapValues(_.lInf)
@@ -51,15 +74,14 @@ class HoldensPartitioner extends Serializable with Partitioner {
         val broadcastedLeaders = sc.broadcast(leaders)
         val buckets: RDD[Int] = lInfNormsOnly.map {
             case (bucket, norms) =>
-                //TODO this is inefficient, can be done in O(logn) time, though it might not be important unless there are LOTS of buckets
-                //TODO possibly use Collections.makeBinarySearch?
                 val tmax =  threshold/norms
                 val taperedBuckets = broadcastedLeaders.value.take(bucket + 1).toList
-                var current = 0
-                while ((threshold / norms > taperedBuckets(current)._2) && current < taperedBuckets.size - 1)
-                    current = current + 1
+//                var current = 0
+//                while ((threshold / norms > taperedBuckets(current)._2) && current < taperedBuckets.size - 1)
+//                    current = current + 1
+                val current = ltBinarySearch(taperedBuckets, threshold/norms)
                 //TODO ask Tao about this, it seems like there's something I'm not getting about the bucketization.
-                if (current != 0) taperedBuckets(current-1)._1 else taperedBuckets(current)._1
+                taperedBuckets(current)._1
         }
         inputVectors.zip(buckets).map {
             case ((key, vec), matchedBuckets) =>
