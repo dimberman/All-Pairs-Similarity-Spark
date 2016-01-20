@@ -67,6 +67,15 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
         bucketSizes.foreach(_ shouldBe 5)
     }
 
+    "partitionByL1GraySort" should "partition values into buckets blah blha blah" in {
+        val bucketizedLargeVec = partitioner.partitionByL1GraySort(testRDD, 4, 20)
+        val buckets = bucketizedLargeVec.collect()
+        val a = 5
+
+        bucketizedLargeVec.keys.distinct().count() shouldEqual 4
+    }
+
+
     "determineBucketLeaders" should "determine the max l1 value for a bucket and match it to the corresponding key" in {
         val bucketized = partitioner.partitionByL1Norm(testRDD, 4, 20)
         val collected = bucketized.collect()
@@ -140,15 +149,6 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
 
     }
 
-
-//    "turnAssignmentsIntoRDDs" should "only return the RDDs with keys linked to the bucketValues" in {
-//        val n = VectorWithNorms(-1, -1, new SparseVector(4, indices, Array(0.41, 0.68, 0.85)))
-//        val testNormalizedRDD = sc.parallelize(Seq((1,n),(2,n), (4,n), (5,n)))
-//        val testBucketVal = List(BucketMapping(1, List(2,4)),BucketMapping(1, List(2,5)))
-//        val assigned = partitioner.turnAssignmentsIntoRDDs(testBucketVal, testNormalizedRDD)
-//        val results = assigned.map{case (name, v) => (name, v.collect().map(_._1))}
-//        results.head._2 shouldEqual Array(2,4)
-//    }
 
 
 }
