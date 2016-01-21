@@ -17,39 +17,64 @@ trait Partitioner {
       * @param bucketValues
       * @return
       */
-    def prepareTasksForParallelization(r:RDD[(Int, VectorWithNorms)], bucketValues:List[BucketMapping]):RDD[(Int, (Int, VectorWithNorms))] = {
+    def prepareTasksForParallelization[T](r:RDD[((Int, Int), T)], bucketValues:List[BucketMapping]):RDD[(Int, (Int, T))] = {
         val BVBucketValues = r.context.broadcast(bucketValues)
         r.flatMap {
-            case(bucket, v) =>
-                BVBucketValues.value.flatMap(m => if (m.values.contains(bucket)) Some((m.taskBucket, (bucket, v))) else None)
+            case((bucket, tiedLeader), v) =>
+                val id = bucket*(bucket + 1)/2 + tiedLeader
+                BVBucketValues.value.flatMap(m => if (m.values.contains(id) ) Some((m.taskBucket, (bucket, v))) else None)
         }
     }
 
 
-//    def isCandidate()
+    def isCandidate(a:(Int, Int), b:(Int,Int)):Boolean = {
+         if(a._2>b._1 && a._2 > b._2) false
+        else true
+
+    }
 
 
     def createPartitioningAssignments(numBuckets: Int): List[BucketMapping] = {
-        val masters: List[Int] = List.range(0, numBuckets)
-        masters.map(
+        val actualNum = (numBuckets*(numBuckets +1))/2
+        val masters: List[Int] = List.range(0, actualNum)
+        val sums = getSums(numBuckets)
+        masters.par.map(
             m =>
-                numBuckets % 2 match {
+                actualNum % 2 match {
                     case 1 =>
-                        val e = List.range(m + 1, (m + 1) + (numBuckets - 1) / 2) :+m
-                        val c = e.map(_ % numBuckets)
+                        val e = List.range(m + 1, (m + 1) + (actualNum - 1) / 2) :+m
+                        val c = e.map(_ % actualNum)
                         BucketMapping(m, c.toSet)
                     case 0 =>
-                        if (m < numBuckets / 2)
-                            BucketMapping(m, (List.range(m + 1, (m + 1) + numBuckets / 2).map(_ % numBuckets) :+m ) .toSet  )
+                        if (m < actualNum / 2)
+                            BucketMapping(m, (List.range(m + 1, (m + 1) + actualNum / 2).map(_ % actualNum) :+m ) .toSet  )
                         else {
-                            val x = (m + 1)  + numBuckets / 2 - 1
+                            val x = (m + 1)  + actualNum / 2 - 1
                             val e = List.range(m + 1, x)
-                            val c = e.map(_ % numBuckets):+m
+                            val c = e.map(_ % actualNum):+m
                             BucketMapping(m, c.toSet)
                         }
                 }
-        )
+        ).toList
     }
+
+
+
+    def toAssignment(sums:Array[Int], input:Int) = {
+
+
+    }
+
+    def getSums(i:Int):Array[Int] = {
+        val ret = new Array[Int](i+1)
+        ret(0)=1
+        for(j <- 1 to i){
+            ret(j) = ret(j-1) + j + 1
+        }
+        ret
+    }
+
+
 
 
     def writeInvertedIndexesToHDFS(r:RDD[(Int, SparseVector)]) = {

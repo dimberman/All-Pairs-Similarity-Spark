@@ -8,4 +8,9 @@ package edu.ucsb.apss
 case class BucketMapping(taskBucket:Int, values:Set[Int])
 
 
+case class partMap(numPart:Int){
+//     val m =
+}
+
+
 

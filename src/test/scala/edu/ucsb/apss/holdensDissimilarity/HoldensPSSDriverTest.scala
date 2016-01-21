@@ -20,7 +20,7 @@ class HoldensPSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val answer = driver.run(sc, vecs, 4, .01)
         val x = answer.collect()
 //        x.foreach(a => a.foreach(println))
-        x.foreach(println)
+//        x.foreach(println)
 
 
     }

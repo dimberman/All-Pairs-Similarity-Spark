@@ -30,12 +30,12 @@ object InvertedIndex {
 
 
 
-    def createFeaturePairs(a:(Int, VectorWithNorms)) = {
-        val (docId, vector ) = a
-        vector.vector.indices.map(i => (i, List(FeaturePair(vector.index.toInt, vector.vector(i)))))
+    def createFeaturePairs(vector:VectorWithNorms) = {
+//        val vecto = a
+        vector.vector.indices.map(i => (i, List(FeaturePair(vector.index, vector.vector(i)))))
     }
 
-    def apply(a:(Int, VectorWithNorms)):InvertedIndex = {
+    def apply(a:VectorWithNorms):InvertedIndex = {
         new InvertedIndex(createFeaturePairs(a).toMap)
     }
 
@@ -60,4 +60,4 @@ object InvertedIndex {
 }
 
 
-case class FeaturePair(id: Int, weight: Double)
+case class FeaturePair(id: Long, weight: Double)

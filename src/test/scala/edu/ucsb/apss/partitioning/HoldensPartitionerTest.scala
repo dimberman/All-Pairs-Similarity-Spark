@@ -92,11 +92,11 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
 //        leaders.foreach{case (bucket, v) => println(s"leader for bucket $bucket: $v") }
         val collectedVectors = tiedVectors.collect()
         collectedVectors.foreach {
-            case (bucketIndex, dr) =>
-                threshold/dr.lInf should be > leaders(dr.associatedLeader)._2
-                if(dr.associatedLeader != bucketIndex-1 &&  bucketIndex!= dr.associatedLeader){
+            case ((bucketIndex, tiedLeader), dr) =>
+                threshold/dr.lInf should be > leaders(tiedLeader)._2
+                if(tiedLeader != bucketIndex-1 &&  bucketIndex!= tiedLeader){
 //                    println(s"comparing ${dr.associatedLeader} in bucket $bucketIndex with tmax ${threshold/dr.lInf}")
-                    threshold/dr.lInf should be < leaders(dr.associatedLeader+1)._2
+                    threshold/dr.lInf should be < leaders(tiedLeader+1)._2
                 }
 
         }
@@ -127,27 +127,11 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
         partitioner.ltBinarySearch(List((1,.03),(2,.25),(3, .56),(4, .65),(5, .88)), .61) shouldBe 3
     }
 
-    "equallyPartitionTasksByKey" should "assure that each pair is matched exactly once" in {
-      for(i <- 1 to 25){
-          val bucketVals = sc.parallelize(List.range(0, i))
-          val matchedPairs = bucketVals.cartesian(bucketVals)
-            //getting rid of reflexive comparison
-//            .filter{case(x,c) => x!=c}
-            //making order not matter (i.e. (1,3) == (3,1)
-            .map{case(x,c) => if (x>c)(c,x) else (x,c)}.sortByKey()
-            //getting rid of copies
-            .distinct().collect().toList
-//          matchedPairs.foreach(println)
-          val partitionLists = partitioner.createPartitioningAssignments(i).map(a => (a.taskBucket, a.values))
-          val partitionPairs = partitionLists
-            .flatMap{case (x, b) => b.map(c => (x,c))}
-            .map{case(x,c) => if (x>c)(c,x) else (x,c)}
-          partitionPairs.length shouldEqual matchedPairs.length
-          //        partitionPairs.distinct.length shouldEqual matchedPairs.length
-          partitionPairs should contain allElementsOf matchedPairs
-      }
 
-    }
+
+
+
+
 
 
 

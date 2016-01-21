@@ -53,8 +53,7 @@ class HoldensPartitioner extends Serializable with Partitioner {
     }
 
 
-    var binarySearch: ((Array[Int], Int) => Int) =
-        (l, x) => util.Arrays.binarySearch(l, x)
+
 
 
     def ltBinarySearch(a: List[(Int, Double)], key: Double): Int = {
@@ -76,7 +75,7 @@ class HoldensPartitioner extends Serializable with Partitioner {
     }
 
 
-    def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, VectorWithNorms)], leaders: Array[(Int, Double)], threshold: Double, sc: SparkContext): RDD[(Int, VectorWithNorms)] = {
+    def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, VectorWithNorms)], leaders: Array[(Int, Double)], threshold: Double, sc: SparkContext): RDD[((Int,Int), VectorWithNorms)] = {
         //this step should reduce the amount of data that needs to be shuffled
         val persistedInputvecs = inputVectors.persist()
         val lInfNormsOnly = persistedInputvecs.mapValues(_.lInf)
@@ -89,13 +88,15 @@ class HoldensPartitioner extends Serializable with Partitioner {
                 taperedBuckets(current)._1
         }
         val ret = persistedInputvecs.zip(buckets).map {
-            case ((key, vec), matchedBuckets) =>
-                val nVec = new VectorWithNorms(vec.lInf, vec.l1, vec.vector, vec.index, matchedBuckets)
-                (key, nVec)
+            case ((key, vec), matchedBucket) =>
+                val nVec = new VectorWithNorms(vec.lInf, vec.l1, vec.vector, vec.index, matchedBucket)
+                ((key, matchedBucket), nVec)
         }
         persistedInputvecs.unpersist()
         ret
     }
+
+
 
     def filterPartitionsWithDissimilarity = (a: Int, b: Int, r: RDD[(Int, VectorWithNorms)]) => r.filter { case (name, vec) => name == b && vec.associatedLeader >= a }
 
