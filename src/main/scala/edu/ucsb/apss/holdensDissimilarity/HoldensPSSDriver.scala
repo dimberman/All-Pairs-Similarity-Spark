@@ -31,16 +31,8 @@ class HoldensPSSDriver {
           .reduceByKey(
             mergeInvertedIndexes
         ).map { case (x, b) => ((x._1 * (x._1 + 1))/2 + x._2, (b, x)) }
-
-//        val i = invIndexes.collect()
-
-        val assignments = partitioner.createPartitioningAssignments(numBuckets)
-
-        val y = 0
-
-
         ////        val a = calculateCosineSimilarityUsingGroupByKey(partitionedVectors, invIndexes, assignments, thr//eshold)
-        val a:RDD[(Int, (Long, Long, Double))] = calculateCosineSimilarityUsingCogroupAndFlatmap(bucketizedVectors, invIndexes, assignments, threshold)
+        val a:RDD[(Int, (Long, Long, Double))] = calculateCosineSimilarityUsingCogroupAndFlatmap(bucketizedVectors, invIndexes, threshold, numBuckets)
         a.map(_._2)
 
 
@@ -49,19 +41,13 @@ class HoldensPSSDriver {
 
     def pullKey(a:(Int, Int)) = (a._1 * (a._1 + 1))/2 + a._2
 
-    def calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedVectors: RDD[((Int, Int), VectorWithNorms)], invIndexes: RDD[(Int, (InvertedIndex,(Int,Int)))], assignments: List[BucketMapping], threshold: Double): RDD[(Int, (Long, Long, Double))] = {
+    def calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedVectors: RDD[((Int, Int), VectorWithNorms)], invIndexes: RDD[(Int, (InvertedIndex,(Int,Int)))], threshold: Double, numBuckets:Int): RDD[(Int, (Long, Long, Double))] = {
 
         //TODO test that this will guarantee that all key values will be placed into a single partition
         //TODO this function would be the perfect point to filter the values via static partitioning
 
-        val par = partitioner.prepareTasksForParallelization(partitionedVectors, assignments)
-//        val x = par.collect()
-//        val y = invIndexes.collect()
+        val par = partitioner.prepareTasksForParallelization(partitionedVectors, numBuckets)
         val partitionedTasks:RDD[(Int, (Iterable[(Int,VectorWithNorms)], Iterable[(InvertedIndex, (Int, Int))]))] = par.cogroup(invIndexes)
-
-
-//        val n = partitionedTasks.collect()
-        val b = 6
         val a: RDD[(Int, (Long, Long, Double))] = partitionedTasks.flatMapValues {
             case (vectors, i) =>
                 // there should only be one inverted index
@@ -80,7 +66,6 @@ class HoldensPSSDriver {
                             val vec = v.vector
                             val d_i = invertedIndex.filter(a => vec.indices.contains(a._1))
                             var i = 0
-
                             val d_j = vec.indices.flatMap(
                                 ind =>
                                     if (d_i.contains(ind)) {
@@ -105,12 +90,9 @@ class HoldensPSSDriver {
                                     }
                                     r_j -= weight_j
                             }
-                            //                        val s = scores.zipWithIndex.filter(_._1 > threshold).map { case (score, ind_i) => (ind_i, v.index, score) }
-                            val s = scores.toList.filter(_._2 > threshold).map { case (a, b) => (a._1, a._2, b) }
-
+                            val s = scores.toList.filter(_._2 > threshold).map { case (g, b) => (g._1, g._2, b) }
                             s.toList
                     }
-
                     c
                 }
         }

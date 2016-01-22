@@ -17,14 +17,45 @@ trait Partitioner {
       * @param bucketValues
       * @return
       */
-    def prepareTasksForParallelization[T](r:RDD[((Int, Int), T)], bucketValues:List[BucketMapping]):RDD[(Int, (Int, T))] = {
-        val BVBucketValues = r.context.broadcast(bucketValues)
+//    def prepareTasksForParallelization[T](r:RDD[((Int, Int), T)], bucketValues:List[BucketMapping]):RDD[(Int, (Int, T))] = {
+////        val BVBucketValues = r.context.broadcast(bucketValues)
+//        r.flatMap {
+//            case((bucket, tiedLeader), v) =>
+//                val id = bucket*(bucket + 1)/2 + tiedLeader
+////                BVBucketValues.value.flatMap(m => if (m.values.contains(id) ) Some((m.taskBucket, (bucket, v))) else None)
+//
+//        }
+//    }
+
+    def prepareTasksForParallelization[T](r:RDD[((Int, Int), T)], numBuckets:Int):RDD[(Int, (Int, T))] = {
+        //        val BVBucketValues = r.context.broadcast(bucketValues)
         r.flatMap {
             case((bucket, tiedLeader), v) =>
                 val id = bucket*(bucket + 1)/2 + tiedLeader
-                BVBucketValues.value.flatMap(m => if (m.values.contains(id) ) Some((m.taskBucket, (bucket, v))) else None)
+            //                BVBucketValues.value.flatMap(m => if (m.values.contains(id) ) Some((m.taskBucket, (bucket, v))) else None)
+                assignPartition((numBuckets*(numBuckets+1))/2,id).map(a => (a,(bucket, v)))
         }
     }
+
+    def assignPartition(actualNum:Int, m:Int):List[Int] ={
+        actualNum % 2 match {
+            case 1 =>
+                val e = List.range(m + 1, (m + 1) + (actualNum - 1) / 2) :+m
+                e.map(_ % actualNum)
+            case 0 =>
+                if (m < actualNum / 2)
+                    List.range(m + 1, (m + 1) + actualNum / 2).map(_ % actualNum) :+ m
+                else {
+                    val x = (m + 1)  + actualNum / 2 - 1
+                    val e = List.range(m + 1, x)
+                    val c = e.map(_ % actualNum):+m
+                     c
+                }
+        }
+
+    }
+
+
 
 
     def isCandidate(a:(Int, Int), b:(Int,Int)):Boolean = {
