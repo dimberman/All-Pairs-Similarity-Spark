@@ -19,28 +19,6 @@ class PartitionerTest extends FlatSpec with Matchers with BeforeAndAfter{
     }
 
 
-    "createPartitioningAssignments" should "assure that each pair is matched exactly once" in {
-        for(i <- 1 to 15){
-//            println(s"processing $i")
-            val bucketVals = sc.parallelize(List.range(0, i * (i + 1) / 2))
-            val matchedPairs = bucketVals.cartesian(bucketVals)
-              //getting rid of reflexive comparison
-              //            .filter{case(x,c) => x!=c}
-              //making order not matter (i.e. (1,3) == (3,1)
-              .map{case(x,c) => if (x<c)(c,x) else (x,c)}.sortByKey()
-              //getting rid of copies
-              .distinct().collect().toList
-            //          matchedPairs.foreach(println)
-            val partitionLists = partitioner.createPartitioningAssignments(i).map(a => (a.taskBucket, a.values))
-            val partitionPairs = partitionLists
-              .flatMap{case (x, b) => b.map(c => (x,c))}
-              .map{case(x,c) => if (x<c)(c,x) else (x,c)}
-            partitionPairs.length shouldEqual matchedPairs.length
-            //        partitionPairs.distinct.length shouldEqual matchedPairs.length
-            partitionPairs should contain allElementsOf matchedPairs
-        }
-
-    }
 
 
 
