@@ -21,17 +21,18 @@ class HoldensPSSDriver {
     def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double) = {
         val count = vectors.count
 
-        val partitionedVectors = partitioner.partitionByL1Sort(vectors, numBuckets, count).persist()
-//        val partitionedVectors = partitioner.partitionByL1GraySort(vectors, numBuckets, count).persist()
-        val bucketLeaders = partitioner.determineBucketLeaders(partitionedVectors).collect()
-        val bucketizedVectors = partitioner.tieVectorsToHighestBuckets(partitionedVectors, bucketLeaders, threshold, sc)
+        val l1partitionedVectors = partitioner.partitionByL1Sort(vectors, numBuckets, count).persist()
+//        val l1partitionedVectors = partitioner.partitionByL1GraySort(vectors, numBuckets, count).persist()
+        //TODO this collect can be avoided if I can accesss values in partitioner
+        val bucketLeaders = partitioner.determineBucketLeaders(l1partitionedVectors).collect()
+        val bucketizedVectors = partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
         val invIndexes = bucketizedVectors.map {
             case ((ind, buck), v) => ((ind, buck), InvertedIndex(createFeaturePairs(v).toList)) }
           //TODO would it be more efficient to do an aggregate?
           .reduceByKey(
             mergeInvertedIndexes
         ).map { case (x, b) => ((x._1 * (x._1 + 1))/2 + x._2, (b, x)) }
-        ////        val a = calculateCosineSimilarityUsingGroupByKey(partitionedVectors, invIndexes, assignments, thr//eshold)
+        ////        val a = calculateCosineSimilarityUsingGroupByKey(l1partitionedVectors, invIndexes, assignments, thr//eshold)
         val a:RDD[(Int, (Long, Long, Double))] = calculateCosineSimilarityUsingCogroupAndFlatmap(bucketizedVectors, invIndexes, threshold, numBuckets)
         a.map(_._2)
 
@@ -58,7 +59,6 @@ class HoldensPSSDriver {
                     val invertedIndex = inv.indices
                     val c = vectors.flatMap {
                         case (buck, v) =>
-                            //                        val scores = new Array[Double](vectors.size)
                             val scores = new mutable.HashMap[(Long, Long), Double]() {
                                 override def default(key: (Long, Long)) = 0
                             }
@@ -66,7 +66,8 @@ class HoldensPSSDriver {
                             val vec = v.vector
                             val d_i = invertedIndex.filter(a => vec.indices.contains(a._1))
                             var i = 0
-                            val d_j = vec.indices.flatMap(
+                            val d_j = vec.indices
+                              .flatMap(
                                 ind =>
                                     if (d_i.contains(ind)) {
                                         i += 1
@@ -77,8 +78,6 @@ class HoldensPSSDriver {
                                         None
                                     }
                             )
-
-                            val x = 5
                             d_j.foreach {
                                 case (feat, (ind_j, weight_j)) =>
                                     d_i(feat).foreach {
@@ -90,6 +89,8 @@ class HoldensPSSDriver {
                                     }
                                     r_j -= weight_j
                             }
+
+
                             val s = scores.toList.filter(_._2 > threshold).map { case (g, b) => (g._1, g._2, b) }
                             s.toList
                     }

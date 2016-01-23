@@ -7,7 +7,7 @@ import org.apache.spark.rdd.RDD
 /**
   * Created by dimberman on 1/12/16.
   */
-trait Partitioner {
+trait Partitioner extends Serializable{
 
     /**
       * This function will allow me to partition based on the BucketMappings and perform manual load balancing.
@@ -29,11 +29,12 @@ trait Partitioner {
 
     def prepareTasksForParallelization[T](r:RDD[((Int, Int), T)], numBuckets:Int):RDD[(Int, (Int, T))] = {
         //        val BVBucketValues = r.context.broadcast(bucketValues)
+        val rNumBuckets = (numBuckets*(numBuckets+1))/2
         r.flatMap {
             case((bucket, tiedLeader), v) =>
                 val id = bucket*(bucket + 1)/2 + tiedLeader
             //                BVBucketValues.value.flatMap(m => if (m.values.contains(id) ) Some((m.taskBucket, (bucket, v))) else None)
-                assignPartition((numBuckets*(numBuckets+1))/2,id).map(a => (a,(bucket, v)))
+                assignPartition(rNumBuckets,id).map(a => (a,(bucket, v)))
         }
     }
 
