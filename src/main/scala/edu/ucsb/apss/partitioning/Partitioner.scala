@@ -27,7 +27,7 @@ trait Partitioner extends Serializable {
             case ((bucket, tiedLeader), v) =>
                 val id = bucket * (bucket + 1) / 2 + tiedLeader
                 //                BVBucketValues.value.flatMap(m => if (m.values.contains(id) ) Some((m.taskBucket, (bucket, v))) else None)
-                assignPartition(rNumBuckets, id, BVSums.value).map{ case (ind, (buck, tv)) => (ind, (bucket, v))}
+                assignPartition(rNumBuckets, id, BVSums.value).filter(b => isCandidate(b._2, (bucket, tiedLeader))).map{ case (ind, (buck, tv)) => (ind, (bucket, v))}
         }
     }
 
@@ -95,7 +95,7 @@ trait Partitioner extends Serializable {
 
 
     def isCandidate(a: (Int, Int), b: (Int, Int)): Boolean = {
-        if (a._2 > b._1 && a._2 > b._2) false
+        if (a._2 > b._1) false
         else true
 
     }

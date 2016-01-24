@@ -2,17 +2,11 @@ name := "MastersAllPairsSimilaritySearch"
 
 version := "1.0"
 
-lazy val commonSettings = Seq(
-    version := "0.1-SNasdgasdgAPSHOT",
-    organization := "edu.ucsb.apss",
-    scalaVersion := "2.10.5"
-)
-
-lazy val root = (project in file(".")).
-  settings(commonSettings: _*).
-  settings(
-      name := "testRun-" + version)
-
+//lazy val commonSettings = Seq(
+//    version := "0.1-SNasdgasdgAPSHOT",
+//    organization := "edu.ucsb.apss",
+//    scalaVersion := "2.10.5"
+//)
 
 
 scalaVersion := "2.10.5"
@@ -29,7 +23,7 @@ libraryDependencies += "org.scalatest" % "scalatest_2.10" % "3.0.0-M8"
 
 libraryDependencies += "amplab" % "spark-indexedrdd" % "0.3"
 
-assemblyJarName in assembly := "something.jar"
+assemblyJarName in assembly := s"apss-${version.value}.jar"
 
 mainClass in assembly := Some("edu.ucsb.apss.Main")
 
