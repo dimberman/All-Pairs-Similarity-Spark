@@ -14,7 +14,7 @@ trait Partitioner extends Serializable {
       * The problem I was running into before was that it was impossible to dynamically partition a value to multiple partitions.
       * To solve this, the following function flatmaps the values with a "PartitionKey" which can then be mapped via a repartition.
       * @param r
-      * @param bucketValues
+      * @param numBuckets
       * @return
       */
 
@@ -27,7 +27,7 @@ trait Partitioner extends Serializable {
             case ((bucket, tiedLeader), v) =>
                 val id = bucket * (bucket + 1) / 2 + tiedLeader
                 //                BVBucketValues.value.flatMap(m => if (m.values.contains(id) ) Some((m.taskBucket, (bucket, v))) else None)
-                assignPartition(rNumBuckets, id, BVSums.value).map(a => (a, (bucket, v)))
+                assignPartition(rNumBuckets, id, BVSums.value).map{ case (ind, (buck, tv)) => (ind, (bucket, v))}
         }
     }
 
@@ -51,57 +51,46 @@ trait Partitioner extends Serializable {
     }
 
 
-    def assignPartition(actualNum: Int, currentVal: Int, sums: Array[Int]): List[Int] = {
+    def assignPartition(actualNum: Int, currentVal: Int, sums: Array[Int]): List[(Int, (Int, Int))] = {
         actualNum % 2 match {
             case 1 =>
                 val e = List.range(currentVal + 1, (currentVal + 1) + (actualNum - 1) / 2) :+ currentVal
                 val x = e.map(_ % actualNum)
                 val y = ltBinarySearch(sums, currentVal)
                 val v = pullTiedVectors(x, sums, y)
-                x
+                e.zip(v)
             case 0 =>
-                if (currentVal < actualNum / 2)
-                    List.range(currentVal + 1, (currentVal + 1) + actualNum / 2).map(_ % actualNum) :+ currentVal
+                if (currentVal < actualNum / 2) {
+                    val e = List.range(currentVal + 1, (currentVal + 1) + actualNum / 2).map(_ % actualNum) :+ currentVal
+                    val y = ltBinarySearch(sums, currentVal)
+                    val v = pullTiedVectors(e, sums, y)
+                    e.zip(v)
+                }
                 else {
                     val x = (currentVal + 1) + actualNum / 2 - 1
-                    val e = List.range(currentVal + 1, x)
-                    val c = e.map(_ % actualNum) :+ currentVal
-                    c
+                    val e = List.range(currentVal + 1, x).map(_ % actualNum) :+ currentVal
+                    val y = ltBinarySearch(sums, currentVal)
+                    val v = pullTiedVectors(e, sums, y)
+                    e.zip(v)
                 }
         }
 
     }
 
-    def pullTiedVectors(list: List[Int], sums: Array[Int], startInd: Int):List[(Int, Int)] = {
-        list.scanRight((startInd, list.head - sums(startInd))){
-            case (ind,(bucket, tv)) =>
-                 val curSum = sums(bucket)
-                 val next = (bucket + 1) % sums.length
-                 val nextSum = sums(next)
-                 if (ind == nextSum) {
-                     (next, 0)
-                 }
-                 else {
-                     (bucket, curSum - curSum)
-                 }
+    def pullTiedVectors(list: List[Int], sums: Array[Int], startInd: Int): List[(Int, Int)] = {
+        list.scanRight((startInd, list.head - sums(startInd))) {
+            case (ind, (bucket, tv)) =>
+                val curSum = sums(bucket)
+                val next = (bucket + 1) % sums.length
+                val nextSum = sums(next)
+                if (ind == nextSum) {
+                    (next, 0)
+                }
+                else {
+                    (bucket, curSum - curSum)
+                }
         }
 
-        //        var startSum = sums(startInd)
-//        var i = startInd
-//        val ret = new Array(list.size)
-//        list.map(a => {
-//            val curSum = sums(i)
-//            val next = (i + 1) % sums.length
-//            val nextSum = sums(next)
-//            if(a ==nextSum) {
-//                i = next
-//                (next, 0)
-//            }
-//            else {
-//                (i, a-curSum)
-//            }
-//        }
-//        )
     }
 
 
@@ -110,7 +99,6 @@ trait Partitioner extends Serializable {
         else true
 
     }
-
 
 
     def toAssignment(sums: Array[Int], input: Int) = {
