@@ -52,7 +52,7 @@ object InvertedIndex {
 
 
 
-    private def mergeMap[A, B](a: Map[A, B], b: Map[A, B])(f: (B, B) => B): Map[A, B] =
+     def mergeMap[A, B](a: Map[A, B], b: Map[A, B])(f: (B, B) => B): Map[A, B] =
         (a /: (for (kv <- b) yield kv)) {
             (c, kv) =>
                 c + (if (a.contains(kv._1)) kv._1 -> f(c(kv._1), kv._2) else kv)

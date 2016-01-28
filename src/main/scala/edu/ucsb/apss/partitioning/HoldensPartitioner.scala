@@ -85,7 +85,9 @@ class HoldensPartitioner extends Serializable with Partitioner {
                 val tmax = threshold / norms
                 val taperedBuckets = broadcastedLeaders.value.take(bucket + 1).toList
                 val current = ltBinarySearch(taperedBuckets, tmax)
-                taperedBuckets(current)._1
+                //TODO this is a hack
+                val res = math.min(current, taperedBuckets.length - 1)
+                taperedBuckets(res)._1
         }
         val ret = persistedInputvecs.zip(buckets).map {
             case ((key, vec), matchedBucket) =>
