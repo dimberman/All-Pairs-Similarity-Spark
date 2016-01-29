@@ -31,7 +31,6 @@ class HoldensPSSDriver {
         val count = vectors.count
 
         val l1partitionedVectors = partitioner.partitionByL1Sort(vectors, numBuckets, count)
-        //        val l1partitionedVectors = partitioner.partitionByL1GraySort(vectors, numBuckets, count).persist()
         //TODO this collect can be avoided if I can accesss values in partitioner
         val bucketLeaders = partitioner.determineBucketLeaders(l1partitionedVectors).collect().sortBy(_._1)
         val bucketizedVectors = partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
@@ -40,7 +39,6 @@ class HoldensPSSDriver {
             case ((ind, buck), v) => ((ind, buck), createFeaturePairs(v).toMap)
         }.reduceByKey { case (a, b) => mergeMap(a, b)((v1, v2) => v1 ++ v2) }
         //TODO would it be more efficient to do an aggregate?
-        //        println(invInd.toDebugString)
         val invIndexes = invInd.mapValues(
             a => InvertedIndex(a)
         ).map { case (x, b) => ((x._1 * (x._1 + 1)) / 2 + x._2, (b, x)) }
@@ -67,12 +65,12 @@ class HoldensPSSDriver {
         parCount.foreach{ case(idx, count) => log.info(s"partition $idx had $count vectors to calculate")}
 //        val i = invIndexes.collect()
         val partitionedTasks: RDD[(Int, (Iterable[(Int, VectorWithNorms)], Iterable[(InvertedIndex, (Int, Int))]))] = par.cogroup(invIndexes).persist(StorageLevel.MEMORY_ONLY_SER)
-        val pt = partitionedTasks.collect()
-        val x = 3
+//        val pt = partitionedTasks.collect()
+//        val x = 3
 
         println(s"num partitions: ${partitionedTasks.partitions.length}")
 
-        val a: RDD[(Long, Long, Double)] = partitionedTasks.mapPartitions {
+        val similarities: RDD[(Long, Long, Double)] = partitionedTasks.mapPartitions {
             iter =>
                 iter.flatMap {
 
@@ -97,7 +95,7 @@ class HoldensPSSDriver {
                                     var i = 0
 
                                     //TODO you could probably just hold onto the indexes
-                                    val fild_j = vec.indices.zipWithIndex.filter{case(x,y) => invertedIndex.contains(x)}
+//                                    val fild_j = vec.indices.zipWithIndex.filter{case(x,y) => invertedIndex.contains(x)}
                                     val externalVectorFeatures = vec.indices
                                       .flatMap(
                                           ind =>
@@ -152,9 +150,7 @@ class HoldensPSSDriver {
                 }
 
         }
-        a
-//    partitionedTasks.count()
-//        partitionedTasks.context.parallelize(Seq((1L,1L,3.0)))
+        similarities
     }
 
 
