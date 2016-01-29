@@ -57,6 +57,12 @@ object InvertedIndex {
             (c, kv) =>
                 c + (if (a.contains(kv._1)) kv._1 -> f(c(kv._1), kv._2) else kv)
         }
+
+
+
+    def extractIndexMap(i:InvertedIndex):Map[Long,Int] = {
+       i.indices.values.map(a => a.map(_.id)).reduce(_++_).distinct.zipWithIndex.toMap
+    }
 }
 
 

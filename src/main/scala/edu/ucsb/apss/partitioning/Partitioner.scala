@@ -19,15 +19,16 @@ trait Partitioner extends Serializable {
       */
 
 
-    def prepareTasksForParallelization[T](r: RDD[((Int, Int), T)], numBuckets: Int): RDD[(Int, (Int, T))] = {
+    def prepareTasksForParallelization[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: Set[Int]): RDD[(Int, (Int, T))] = {
         //        val BVBucketValues = r.context.broadcast(bucketValues)
         val rNumBuckets = (numBuckets * (numBuckets + 1)) / 2
         val BVSums = r.context.broadcast(getSums(numBuckets))
         r.flatMap {
             case ((bucket, tiedLeader), v) =>
                 val id = bucket * (bucket + 1) / 2 + tiedLeader
-                //                BVBucketValues.value.flatMap(m => if (m.values.contains(id) ) Some((m.taskBucket, (bucket, v))) else None)
-                assignPartition(rNumBuckets, id, BVSums.value).filter(b => isCandidate(b._2, (bucket, tiedLeader))).map{ case (ind, (buck, tv)) => (ind, (bucket, v))}
+                val ga = assignPartition(rNumBuckets, id, BVSums.value)
+                val x = 0
+                ga.filter { case (bId, buck) => isCandidate(buck, (bucket, tiedLeader)) && neededVecs.contains(bId) }.map { case (ind, (buck, tv)) => (ind, (bucket, v)) }
         }
     }
 
