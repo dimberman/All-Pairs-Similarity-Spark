@@ -27,7 +27,7 @@ object Main {
         val converter = new TweetToVectorConverter
         val vecs = par.map(converter.convertTweetToVector)
         val driver = new HoldensPSSDriver
-        val answer = driver.run(sc, vecs, 40, 4)
+        val answer = driver.run(sc, vecs, 15, 15)
         val x = answer.saveAsTextFile(s"s3n://apss-masters/answer-${sc.applicationId}.txt")
     }
 }

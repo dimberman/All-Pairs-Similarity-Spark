@@ -27,12 +27,22 @@ trait Partitioner extends Serializable {
             case ((bucket, tiedLeader), v) =>
                 val id = bucket * (bucket + 1) / 2 + tiedLeader
                 val ga = assignPartition(rNumBuckets, id, BVSums.value)
-                val x = 0
                 ga.filter { case (bId, buck) => isCandidate(buck, (bucket, tiedLeader)) && neededVecs.contains(bId) }.map { case (ind, (buck, tv)) => (ind, (bucket, v)) }
         }
     }
 
 
+    def prepareTasksForParallelization2[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: Set[Int]): RDD[((Int,Int), T)] = {
+        //        val BVBucketValues = r.context.broadcast(bucketValues)
+        val rNumBuckets = (numBuckets * (numBuckets + 1)) / 2
+        val BVSums = r.context.broadcast(getSums(numBuckets))
+        r.flatMap {
+            case ((bucket, tiedLeader), v) =>
+                val id = bucket * (bucket + 1) / 2 + tiedLeader
+                val ga = assignPartition(rNumBuckets, id, BVSums.value)
+                ga.filter { case (bId, buck) => isCandidate(buck, (bucket, tiedLeader)) && neededVecs.contains(bId) }.map { case (ind, (buck, tv)) => ((bucket,tv), v) }
+        }
+    }
     def gtBinarySearch(a: Array[Int], key: Int): Int = {
         var low: Int = 0
         var high: Int = a.length - 1
@@ -44,9 +54,7 @@ trait Partitioner extends Serializable {
             else if (midVal > key) high = mid - 1
             else if (mid == a.length - 1) return mid else return mid + 1
         }
-
         if (mid == a.length - 1) mid else mid + 1
-
     }
 
 
@@ -55,20 +63,17 @@ trait Partitioner extends Serializable {
             case 1 =>
                 val e = List.range(currentVal + 1, (currentVal + 1) + (actualNum - 1) / 2) :+ currentVal
                 val x = e.map(_ % actualNum)
-                val y = gtBinarySearch(sums, currentVal)
                 val v = pullTiedVectors(x, sums, x.head)
                 e.zip(v)
             case 0 =>
                 if (currentVal < actualNum / 2) {
                     val e = List.range(currentVal + 1, (currentVal + 1) + actualNum / 2).map(_ % actualNum) :+ currentVal
-                    val y = gtBinarySearch(sums, currentVal)
                     val v = pullTiedVectors(e, sums, e.head)
                     e.zip(v)
                 }
                 else {
                     val x = (currentVal + 1) + actualNum / 2 - 1
                     val e = List.range(currentVal + 1, x).map(_ % actualNum) :+ currentVal
-                    val y = gtBinarySearch(sums, currentVal)
                     val v = pullTiedVectors(e, sums, e.head)
                     e.zip(v)
                 }
@@ -77,24 +82,16 @@ trait Partitioner extends Serializable {
     }
 
     def pullTiedVectors(list: List[Int], sums: Array[Int], startInd: Int): List[(Int, Int)] = {
-        val x = 5
         val a = list.scanLeft((0, 0)) {
             case ((bucket, tv), ind) =>
                 var buck = bucket
                 if(sums(buck)>ind) buck = 0
                 while (ind>=sums(buck)) buck+=1
-                val c = tv
-                val t = ind
-                val curSum = sums(bucket)
-                val next = (bucket + 1) % sums.length
-                val nextSum = sums(next)
-
                 val b =
                     if(ind != 0)
                         ind - sums(buck-1)
                     else 0
                 (buck, b)
-
         }
         a.tail
 

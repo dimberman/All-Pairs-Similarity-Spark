@@ -46,12 +46,6 @@ object InvertedIndex {
         new InvertedIndex(Map())
     }
 
-
-//    private def addMapWithListValue[A, B](a: Map[A, B], kv: (A,Array[B]))(f: (B, B) => B): Map[A, B] =
-//            a + (if (a.contains(kv._1)) kv._1 -> f(a(kv._1), kv._2) else (kv._1, kv._2))
-
-
-
      def mergeMap[A, B](a: Map[A, B], b: Map[A, B])(f: (B, B) => B): Map[A, B] =
         (a /: (for (kv <- b) yield kv)) {
             (c, kv) =>

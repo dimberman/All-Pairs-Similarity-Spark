@@ -34,7 +34,7 @@ class HoldensPSSDriver {
         //TODO this collect can be avoided if I can accesss values in partitioner
         val bucketLeaders = partitioner.determineBucketLeaders(l1partitionedVectors).collect().sortBy(_._1)
         val bucketizedVectors = partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
-//          .repartition(15)
+          .repartition(15)
         val invInd = bucketizedVectors.map {
             case ((ind, buck), v) => ((ind, buck), createFeaturePairs(v).toMap)
         }.reduceByKey { case (a, b) => mergeMap(a, b)((v1, v2) => v1 ++ v2) }
@@ -61,12 +61,12 @@ class HoldensPSSDriver {
         invIndexes.persist()
         val neededVecs = invIndexes.keys.collect().toSet
         val par = partitioner.prepareTasksForParallelization(partitionedVectors, numBuckets, neededVecs)
-        val parCount = par.countByKey().toList.sortBy(_._2)
-        parCount.foreach{ case(idx, count) => log.info(s"partition $idx had $count vectors to calculate")}
-//        val i = invIndexes.collect()
+        val parCount = partitioner.prepareTasksForParallelization2(partitionedVectors, numBuckets, neededVecs).countByKey().toList.sortBy(_._2)
+        parCount.foreach { case (idx, count) => log.info(s"partition $idx had $count vectors to calculate") }
+        //        val i = invIndexes.collect()
         val partitionedTasks: RDD[(Int, (Iterable[(Int, VectorWithNorms)], Iterable[(InvertedIndex, (Int, Int))]))] = par.cogroup(invIndexes).persist(StorageLevel.MEMORY_ONLY_SER)
-//        val pt = partitionedTasks.collect()
-//        val x = 3
+        //        val pt = partitionedTasks.collect()
+        //        val x = 3
 
         println(s"num partitions: ${partitionedTasks.partitions.length}")
 
@@ -81,11 +81,11 @@ class HoldensPSSDriver {
                             println("this shouldn't happen!")
                             None
                         }
-
                         else {
                             val (inv, bucket) = i.head
                             val invertedIndex = inv.indices
-                            val indexMap =  InvertedIndex.extractIndexMap(inv)
+                            println(s"calculating similarity for partition: $bucket")
+                            val indexMap = InvertedIndex.extractIndexMap(inv)
                             val score = new Array[Double](indexMap.size)
                             val c = vectors.map {
                                 case (buck, v) =>
@@ -95,33 +95,49 @@ class HoldensPSSDriver {
                                     var i = 0
 
                                     //TODO you could probably just hold onto the indexes
-//                                    val fild_j = vec.indices.zipWithIndex.filter{case(x,y) => invertedIndex.contains(x)}
-                                    val externalVectorFeatures = vec.indices
-                                      .flatMap(
-                                          ind =>
-                                              if (invertedIndex.contains(ind)) {
-                                                  i += 1
-                                                  Some((ind, (v.index.toInt, vec.values(i - 1))))
-                                              }
-                                              else {
-                                                  i += 1
-                                                  None
-                                              }
-                                      )
+                                    val evf = (vec.indices.zip(vec.values).filter(b => invertedIndex.contains(b._1)), v.index)
+//                                    val externalVectorFeatures = vec.indices
+//                                      .flatMap(
+//                                          ind =>
+//                                              if (invertedIndex.contains(ind)) {
+//                                                  i += 1
+//                                                  Some((ind, (v.index.toInt, vec.values(i - 1))))
+//                                              }
+//                                              else {
+//                                                  i += 1
+//                                                  None
+//                                              }
+//                                      )
 
-                                    externalVectorFeatures.foreach {
-                                        case (featureIndex, (ind_j, weight_j)) =>
+
+                                    evf._1.foreach {
+                                        case (featureIndex, weight_j) =>
+//                                            val ind_j = evf._2
                                             invertedIndex(featureIndex).foreach {
                                                 case (featurePair) => {
                                                     val (ind_i, weight_i) = (featurePair.id, featurePair.weight)
                                                     val l = indexMap(ind_i)
                                                     //TODO I need to find an efficient way of holding on to Linf
-//                                                    if (!((score(l) + v.lInf * r_j) < threshold))
-                                                        score(l) += weight_i * weight_j
+                                                    //                                                    if (!((score(l) + v.lInf * r_j) < threshold))
+                                                    score(l) += weight_i * weight_j
                                                 }
                                                     r_j -= weight_j
                                             }
                                     }
+
+//                                    externalVectorFeatures.foreach {
+//                                        case (featureIndex, (ind_j, weight_j)) =>
+//                                            invertedIndex(featureIndex).foreach {
+//                                                case (featurePair) => {
+//                                                    val (ind_i, weight_i) = (featurePair.id, featurePair.weight)
+//                                                    val l = indexMap(ind_i)
+//                                                    //TODO I need to find an efficient way of holding on to Linf
+//                                                    //                                                    if (!((score(l) + v.lInf * r_j) < threshold))
+//                                                    score(l) += weight_i * weight_j
+//                                                }
+//                                                    r_j -= weight_j
+//                                            }
+//                                    }
 
                                     //record results
                                     indexMap.keys.foreach {
@@ -136,12 +152,20 @@ class HoldensPSSDriver {
 
 
                                     //clear buffer
-                                    externalVectorFeatures.foreach {
-                                        case (feat, (ind_j, weight_j)) =>
-                                            for(l <- score.indices) {
-                                                    score(l) = 0
+//                                    externalVectorFeatures.foreach {
+//                                        case (feat, (ind_j, weight_j)) =>
+//                                            for (l <- score.indices) {
+//                                                score(l) = 0
+//                                            }
+//                                    }
+
+                                    evf._1.foreach {
+                                        case (feat, weight_j) =>
+                                            for (l <- score.indices) {
+                                                score(l) = 0
                                             }
                                     }
+
                                     answer.toList
                             }
 
@@ -152,18 +176,6 @@ class HoldensPSSDriver {
         }
         similarities
     }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     //    def calculateCosineSimilarityUsingGroupByKey(partitionedVectors: RDD[(Int, VectorWithNorms)], invIndexes: RDD[(Int, (InvertedIndex, Int))], assignments: List[BucketMapping], threshold: Double): RDD[(Int, (Int, Long, Double))] = {

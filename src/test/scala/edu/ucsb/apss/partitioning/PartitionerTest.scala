@@ -30,6 +30,8 @@ class PartitionerTest extends FlatSpec with Matchers with BeforeAndAfter{
     "assignPartition" should "evenly distribute partition assignments" in {
         val sums = partitioner.getSums(5)
         partitioner.assignPartition(5, 0, sums) shouldEqual List((1, (1, 0)), (2,(1,1)), (0,(0,0)))
+        partitioner.assignPartition(5, 1, sums) shouldEqual List( (2,(1,1)), (3,(2,0)), (1, (1, 0)))
+
     }
 
 
