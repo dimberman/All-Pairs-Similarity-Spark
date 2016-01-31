@@ -70,13 +70,13 @@ class HoldensPSSDriver {
 
         println(s"num partitions: ${partitionedTasks.partitions.length}")
 
-        val similarities: RDD[(Long, Long, Double)] = partitionedTasks.mapPartitions {
+        val similarities: RDD[Similarity] = partitionedTasks.mapPartitions {
             iter =>
                 iter.flatMap {
 
                     case (idx, (vectors, i)) =>
                         // there should only be one inverted index
-                        //                        //TODO should I require 1 or would that take up a lot of time?
+                        //TODO should I require 1 or would that take up a lot of time?
                         if (i.isEmpty) {
                             println("this shouldn't happen!")
                             None
@@ -84,35 +84,18 @@ class HoldensPSSDriver {
                         else {
                             val (inv, bucket) = i.head
                             val invertedIndex = inv.indices
-                            println(s"calculating similarity for partition: $bucket")
+//                            println(s"calculating similarity for partition: $bucket")
                             val indexMap = InvertedIndex.extractIndexMap(inv)
                             val score = new Array[Double](indexMap.size)
                             val c = vectors.map {
                                 case (buck, v) =>
                                     var r_j = v.l1
                                     val vec = v.vector
-                                    val answer = ArrayBuffer[(Long, Long, Double)]()
-                                    var i = 0
-
-                                    //TODO you could probably just hold onto the indexes
-                                    val evf = (vec.indices.zip(vec.values).filter(b => invertedIndex.contains(b._1)), v.index)
-//                                    val externalVectorFeatures = vec.indices
-//                                      .flatMap(
-//                                          ind =>
-//                                              if (invertedIndex.contains(ind)) {
-//                                                  i += 1
-//                                                  Some((ind, (v.index.toInt, vec.values(i - 1))))
-//                                              }
-//                                              else {
-//                                                  i += 1
-//                                                  None
-//                                              }
-//                                      )
-
-
-                                    evf._1.foreach {
-                                        case (featureIndex, weight_j) =>
-//                                            val ind_j = evf._2
+                                    val answer = new BoundedPriorityQueue[Similarity](1000)(Similarity.orderingBySimilarity)
+                                    val externalVectorFeatures = vec.indices.zipWithIndex.filter(b => invertedIndex.contains(b._1))
+                                    externalVectorFeatures.foreach {
+                                        case (featureIndex, weight_ind_j) =>
+                                            val weight_j = vec.values(weight_ind_j)
                                             invertedIndex(featureIndex).foreach {
                                                 case (featurePair) => {
                                                     val (ind_i, weight_i) = (featurePair.id, featurePair.weight)
@@ -125,45 +108,21 @@ class HoldensPSSDriver {
                                             }
                                     }
 
-//                                    externalVectorFeatures.foreach {
-//                                        case (featureIndex, (ind_j, weight_j)) =>
-//                                            invertedIndex(featureIndex).foreach {
-//                                                case (featurePair) => {
-//                                                    val (ind_i, weight_i) = (featurePair.id, featurePair.weight)
-//                                                    val l = indexMap(ind_i)
-//                                                    //TODO I need to find an efficient way of holding on to Linf
-//                                                    //                                                    if (!((score(l) + v.lInf * r_j) < threshold))
-//                                                    score(l) += weight_i * weight_j
-//                                                }
-//                                                    r_j -= weight_j
-//                                            }
-//                                    }
-
                                     //record results
                                     indexMap.keys.foreach {
                                         ind_i =>
                                             val l = indexMap(ind_i)
                                             val ind_j = v.index
                                             if (score(l) > threshold) {
-                                                val c = (ind_i, ind_j.toLong, score(l))
+                                                val c = Similarity(ind_i, ind_j.toLong, score(l))
                                                 answer += c
                                             }
+
                                     }
 
 
-                                    //clear buffer
-//                                    externalVectorFeatures.foreach {
-//                                        case (feat, (ind_j, weight_j)) =>
-//                                            for (l <- score.indices) {
-//                                                score(l) = 0
-//                                            }
-//                                    }
-
-                                    evf._1.foreach {
-                                        case (feat, weight_j) =>
-                                            for (l <- score.indices) {
-                                                score(l) = 0
-                                            }
+                                    for (l <- score.indices) {
+                                        score(l) = 0
                                     }
 
                                     answer.toList
@@ -174,7 +133,7 @@ class HoldensPSSDriver {
                 }
 
         }
-        similarities
+        similarities.map(s => (s.i, s.j, s.similarity))
     }
 
 
