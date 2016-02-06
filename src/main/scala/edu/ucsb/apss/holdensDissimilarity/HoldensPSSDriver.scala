@@ -2,20 +2,13 @@ package edu.ucsb.apss.holdensDissimilarity
 
 import edu.ucsb.apss.InvertedIndex.InvertedIndex._
 import edu.ucsb.apss.InvertedIndex.InvertedIndex
-import edu.ucsb.apss.{BucketMapping, VectorWithNorms}
+import edu.ucsb.apss.VectorWithNorms
 import edu.ucsb.apss.partitioning.HoldensPartitioner
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.log4j.Logger
-
-import scala.collection.mutable
-import org.apache.log4j.{Level, Logger}
-
-import org.apache.spark.Logging
-
-import scala.collection.mutable.ArrayBuffer
 
 
 /**
@@ -27,27 +20,22 @@ class HoldensPSSDriver {
 
     val log = Logger.getLogger(getClass.getName)
 
-    def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double) = {
-        val count = vectors.count
 
+
+    def bucketizeVectors(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double):RDD[((Int,Int), VectorWithNorms)] = {
+        val count = vectors.count
         val l1partitionedVectors = partitioner.partitionByL1Sort(vectors, numBuckets, count)
         //TODO this collect can be avoided if I can accesss values in partitioner
         val bucketLeaders = partitioner.determineBucketLeaders(l1partitionedVectors).collect().sortBy(_._1)
-        val bucketizedVectors = partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
-          .repartition(15)
-        val invInd = bucketizedVectors.map {
-            case ((ind, buck), v) => ((ind, buck), createFeaturePairs(v).toMap)
-        }.reduceByKey { case (a, b) => mergeMap(a, b)((v1, v2) => v1 ++ v2) }
-        //TODO would it be more efficient to do an aggregate?
-        val invIndexes = invInd.mapValues(
-            a => InvertedIndex(a)
-        ).map { case (x, b) => ((x._1 * (x._1 + 1)) / 2 + x._2, (b, x)) }
+        partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
+    }
 
-        ////        val a = calculateCosineSimilarityUsingGroupByKey(l1partitionedVectors, invIndexes, assignments, thr//eshold)
-        val a: RDD[(Long, Long, Double)] = calculateCosineSimilarityUsingCogroupAndFlatmap(bucketizedVectors, invIndexes, threshold, numBuckets)
+
+    def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double) = {
+        val bucketizedVectors = bucketizeVectors(sc, vectors, numBuckets, threshold).repartition(15)
+        val invertedIndexes = generateInvertedIndexes(bucketizedVectors)
+        val a: RDD[(Long, Long, Double)] = calculateCosineSimilarityUsingCogroupAndFlatmap(bucketizedVectors, invertedIndexes, threshold, numBuckets)
         a
-        //        a.map(_._2)
-
 
     }
 
@@ -63,13 +51,8 @@ class HoldensPSSDriver {
         val par = partitioner.prepareTasksForParallelization(partitionedVectors, numBuckets, neededVecs)
         val parCount = partitioner.prepareTasksForParallelization2(partitionedVectors, numBuckets, neededVecs).countByKey().toList.sortBy(_._2)
         parCount.foreach { case (idx, count) => log.info(s"partition $idx had $count vectors to calculate") }
-        //        val i = invIndexes.collect()
-        val partitionedTasks: RDD[(Int, (Iterable[(Int, VectorWithNorms)], Iterable[(InvertedIndex, (Int, Int))]))] = par.cogroup(invIndexes).persist(StorageLevel.MEMORY_ONLY_SER)
-        //        val pt = partitionedTasks.collect()
-        //        val x = 3
-
+        val partitionedTasks: RDD[(Int, (Iterable[(Int, VectorWithNorms)], Iterable[(InvertedIndex, (Int, Int))]))] = par.cogroup(invIndexes,30).persist(StorageLevel.MEMORY_AND_DISK_SER)
         println(s"num partitions: ${partitionedTasks.partitions.length}")
-
         val similarities: RDD[Similarity] = partitionedTasks.mapPartitions {
             iter =>
                 iter.flatMap {
@@ -84,7 +67,7 @@ class HoldensPSSDriver {
                         else {
                             val (inv, bucket) = i.head
                             val invertedIndex = inv.indices
-//                            println(s"calculating similarity for partition: $bucket")
+                            println(s"calculating similarity for partition: $bucket")
                             val indexMap = InvertedIndex.extractIndexMap(inv)
                             val score = new Array[Double](indexMap.size)
                             val c = vectors.map {
