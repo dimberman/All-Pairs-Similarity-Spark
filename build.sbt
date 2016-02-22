@@ -25,6 +25,8 @@ libraryDependencies += "org.scalatest" % "scalatest_2.10" % "3.0.0-M8"
 
 libraryDependencies += "amplab" % "spark-indexedrdd" % "0.3"
 
+libraryDependencies += "com.amazonaws" % "aws-java-sdk" % "1.0.002"
+
 assemblyJarName in assembly := s"apss-${version.value}.jar"
 
 mainClass in assembly := Some("edu.ucsb.apss.Main")

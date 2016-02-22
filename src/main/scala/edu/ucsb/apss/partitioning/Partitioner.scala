@@ -19,7 +19,7 @@ trait Partitioner extends Serializable {
       */
 
 
-    def prepareTasksForParallelization[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: Set[Int]): RDD[(Int, (Int, T))] = {
+    def prepareTasksForParallelization[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: Set[Int], needsSplitting: Map[(Int, Int), Long] = Map()): RDD[(Int, (Int, T))] = {
         //        val BVBucketValues = r.context.broadcast(bucketValues)
         val rNumBuckets = (numBuckets * (numBuckets + 1)) / 2
         val BVSums = r.context.broadcast(getSums(numBuckets))
@@ -27,12 +27,18 @@ trait Partitioner extends Serializable {
             case ((bucket, tiedLeader), v) =>
                 val id = bucket * (bucket + 1) / 2 + tiedLeader
                 val ga = assignPartition(rNumBuckets, id, BVSums.value)
-                ga.filter { case (bId, buck) => isCandidate(buck, (bucket, tiedLeader)) && neededVecs.contains(bId) }.map { case (ind, (buck, tv)) => (ind, (bucket, v)) }
+                ga.filter { case (bId, buck) => isCandidate(buck, (bucket, tiedLeader)) && neededVecs.contains(bId) }
+                  .flatMap {
+                      case (ind, (buck, tv)) =>
+                          if (needsSplitting.contains((buck, tv)))
+                              List((ind, (bucket, v)),(ind + rNumBuckets, (bucket, v)))
+                          else List((ind, (bucket, v)))
+                  }
         }
     }
 
 
-    def prepareTasksForParallelization2[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: Set[Int]): RDD[((Int,Int), T)] = {
+    def prepareTasksForParallelization2[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: Set[Int]): RDD[((Int, Int), T)] = {
         //        val BVBucketValues = r.context.broadcast(bucketValues)
         val rNumBuckets = (numBuckets * (numBuckets + 1)) / 2
         val BVSums = r.context.broadcast(getSums(numBuckets))
@@ -40,9 +46,14 @@ trait Partitioner extends Serializable {
             case ((bucket, tiedLeader), v) =>
                 val id = bucket * (bucket + 1) / 2 + tiedLeader
                 val ga = assignPartition(rNumBuckets, id, BVSums.value)
-                ga.filter { case (bId, buck) => isCandidate(buck, (bucket, tiedLeader)) && neededVecs.contains(bId) }.map { case (ind, (buck, tv)) => ((bucket,tv), v) }
+                ga.filter { case (bId, buck) => isCandidate(buck, (bucket, tiedLeader)) && neededVecs.contains(bId) }.map { case (ind, (buck, tv)) => ((bucket, tv), v) }
         }
     }
+
+
+
+
+
     def gtBinarySearch(a: Array[Int], key: Int): Int = {
         var low: Int = 0
         var high: Int = a.length - 1
@@ -85,11 +96,11 @@ trait Partitioner extends Serializable {
         val a = list.scanLeft((0, 0)) {
             case ((bucket, tv), ind) =>
                 var buck = bucket
-                if(sums(buck)>ind) buck = 0
-                while (ind>=sums(buck)) buck+=1
+                if (sums(buck) > ind) buck = 0
+                while (ind >= sums(buck)) buck += 1
                 val b =
-                    if(ind != 0)
-                        ind - sums(buck-1)
+                    if (ind != 0)
+                        ind - sums(buck - 1)
                     else 0
                 (buck, b)
         }

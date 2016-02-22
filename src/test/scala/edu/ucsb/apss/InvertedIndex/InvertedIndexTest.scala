@@ -1,5 +1,7 @@
 package edu.ucsb.apss.InvertedIndex
 
+import edu.ucsb.apss.Context
+import edu.ucsb.apss.preprocessing.TweetToVectorConverter
 import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
 
 import scala.util.Random
@@ -9,7 +11,7 @@ import scala.util.Random
   */
 class InvertedIndexTest extends FlatSpec with Matchers with BeforeAndAfter {
 
-
+      val sc = Context.sc
     val smallSet =List((8, List(FeaturePair(1, 0.15045161740652213))),
         (7, List(FeaturePair(6, 0.7607804088573142))),
         (9, List(FeaturePair(3, 0.9498220587970144))),
@@ -35,6 +37,9 @@ class InvertedIndexTest extends FlatSpec with Matchers with BeforeAndAfter {
 
 
 
+
+
+
     def generateInvertedIndexes(numFeatures: Int) = {
         val randBucket = Random
         val randWeight = Random
@@ -55,4 +60,13 @@ class InvertedIndexTest extends FlatSpec with Matchers with BeforeAndAfter {
         merged(9).length shouldEqual 2
         merged(9).map(_.id) should contain theSameElementsAs List(3,5)
     }
+
+
+
+//    "generatehistogram" should "calculate the most similar vectors" in {
+//        val par = sc.parallelize(Seq("a a a a", "a a b b", "a b f g ", "b b b b"))
+//        val converter = new TweetToVectorConverter
+//        val vecs = par.map(converter.convertTweetToVector)
+//        InvertedIndex.run(Array("Absdf", "3","4.0", "21532"), sc)
+//    }
 }
