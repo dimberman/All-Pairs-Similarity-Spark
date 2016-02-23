@@ -13,7 +13,7 @@ import org.apache.spark.mllib.linalg.SparseVector
 object BagOfWordToVectorConverter extends Serializable{
     def convert(s: String) = {
         val hash = new HashingTF()
-        val split = s.split(" ").map(i => i.toInt)
+        val split = s.split(" ").map(i => if(i!="")i.toInt else -1).filter(_ != -1)
 
         val a = hash.transform(split).toSparse
 

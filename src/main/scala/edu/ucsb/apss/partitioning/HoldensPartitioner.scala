@@ -47,7 +47,6 @@ class HoldensPartitioner extends Serializable with Partitioner {
         sorted
     }
 
-    //TODO If I can access the RangeBounds into the partitioner I wouldn't need to do any of this. That being said I don't know how big of a deal this actually is.
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): RDD[(Int, Double)] = {
         r.map{case(k,v) => (k, v.l1)}.reduceByKey(math.max)
     }

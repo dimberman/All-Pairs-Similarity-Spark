@@ -2,18 +2,17 @@ package edu.ucsb.apss.InvertedIndex
 
 import java.io.{File, PrintWriter}
 
-import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.PutObjectRequest
-import edu.ucsb.apss.InvertedIndex.InvertedIndex
 import edu.ucsb.apss.VectorWithNorms
 import edu.ucsb.apss.holdensDissimilarity.HoldensPSSDriver
 import edu.ucsb.apss.partitioning.HoldensPartitioner
 import edu.ucsb.apss.preprocessing.TweetToVectorConverter
-import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
 import org.apache.log4j.Logger
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.{AccumulatorParam, Accumulator, SparkConf, SparkContext}
 import scala.collection.mutable.{Map => MMap}
+import scala.collection.mutable.ArrayBuffer
+
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 
@@ -25,11 +24,11 @@ import scala.util.Random
   */
 
 
-
-case class InvertedIndex(indices: Map[Int, List[FeaturePair]], bucket:Int = -1, tl:Int = -1)
+case class InvertedIndex(indices: Map[Int, List[FeaturePair]], bucket: Int = -1, tl: Int = -1)
 
 object InvertedIndex {
     type IndexMap = MMap[Int, List[FeaturePair]]
+    type Bucket = (Int, Int)
 
     val log = Logger.getLogger(this.getClass)
 
@@ -114,60 +113,64 @@ object InvertedIndex {
     }
 
 
-    def generateInvertedIndexes(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)], needsSplitting: Map[(Int, Int), Long] = Map(), numParts: Int = 0): RDD[(Int, InvertedIndex)] = {
+    def generateInvertedIndexes(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)], needsSplitting: Map[(Int, Int), Long] = Map(), numParts:Int): RDD[(Int, InvertedIndex)] = {
 
 
-        val splitFeaturePairs = bucketizedVectors.map {
-            case (x, v) => {
-                val idx = (x._1 * (x._1 + 1)) / 2 + x._2
-                val addition = if (needsSplitting.contains(x)) numParts * (Random.nextInt() % 2) else 0
-                val featureMap:IndexMap =  MMap[Int, List[FeaturePair]]() ++= createFeaturePairs(v).toMap
-                (idx + addition, (featureMap, x))
-            }
-        }
+        val incorrectAccum:Accumulator [ArrayBuffer[String]] = bucketizedVectors.context.accumulator(ArrayBuffer(""))(StringAccumulatorParam)
+        val splitFeaturePairs:RDD[(Int, (IndexMap, Bucket))] = splitBucketizedVectors(bucketizedVectors, needsSplitting, numParts)
 
-        //TODO create tree-aggregate
-        val mergedFeaturePairs = splitFeaturePairs.reduceByKey {
-            case((map1, idx1), (map2, idx2)) => {
-                for(k <- map2.keys){
-                    if(map1.contains(k)) map1(k) = map1(k) ++ map2(k)
+
+
+        val mergedFeaturePairs = splitFeaturePairs.reduceByKey{
+            case((map1, idx1),(map2,idx2)) => {
+                //                val (map1, idx1, map2, idx2) = (a._1, a._2, b._1, b._2)
+                for (k <- map2.keys) {
+                    if (map1.contains(k)) map1(k) = map1(k) ++ map2(k)
                     else map1 += (k -> map2(k))
                 }
-                //TODO check the indexes are the same
+                if(idx1 != idx2) incorrectAccum +=  ArrayBuffer(s"index overlap shouldn't happen. values: $idx1, $idx2\n")
+                //                require(idx1 == idx2, s"Values with different buckets have been given the same index. This shouldn't happen. values: $idx1, $idx2")
                 (map1, idx1)
             }
+
         }
 
-               //case ((map1, ind1), (map2,ind2)) => (mergeMap(map1, map2)((v1, v2) => v1 ++ v2), ind1)
+        incorrectAccum.value.foreach(log.error(_))
 
+        require(incorrectAccum.value.length < 2, "there were incorrectly partitioned inverted index values")
 
-//        val invInd = featurePairs.reduceByKey { case (a, b) => mergeMap(a, b)((v1, v2) => v1 ++ v2) }
-
-//        val invIndexes = invInd.mapValues(
-//            a => InvertedIndex(a)
-//        ).map { case (x, b) => {
-//            val idx = (x._1 * (x._1 + 1)) / 2 + x._2
-//            val addition = if (needsSplitting.contains(x)) numParts * (Random.nextInt() % 2) else 0
-//            (idx + addition, (b, x))
-//        }
-//        }
-//        invIndexes
-
-        mergedFeaturePairs.mapValues{case(a,b) => new InvertedIndex(a.toMap, b._1, b._2) }
+        mergedFeaturePairs.mapValues { case (a, (buck, tl)) => new InvertedIndex(a.toMap, buck, tl) }
     }
 
 
-    private def merge(a: InvertedIndex, b: InvertedIndex): InvertedIndex = {
-        InvertedIndex(mergeMap(a.indices, b.indices)((v1, v2) => v1 ++ v2))
+    def splitBucketizedVectors(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)],  needsSplitting: Map[(Int, Int), Long] = Map(), numParts:Int): RDD[(Int, (IndexMap, (Int, Int)))] = {
+        bucketizedVectors.map {
+            case (x, v) => {
+                val id = deriveID(x,needsSplitting,numParts)
+                val featureMap: IndexMap = MMap[Int, List[FeaturePair]]() ++= createFeaturePairs(v).toMap
+                (id, (featureMap, x))
+            }
+        }
     }
 
-    def addInvertedIndexes: (InvertedIndex, Array[(Int, List[FeaturePair])]) => InvertedIndex = (a, b) => InvertedIndex.merge(a, new InvertedIndex(b.toMap))
+    def deriveID(x:(Int, Int), needsSplitting: Map[(Int, Int), Long] = Map(), numParts:Int):Int = {
+        val addition = if (needsSplitting.contains(x)) numParts * (Random.nextInt() % 2) + 1 else 0
+        (x._1 * (x._1 + 1)) / 2 + x._2  + addition
+    }
 
 
-    def mergeInvertedIndexes: (InvertedIndex, InvertedIndex) => InvertedIndex = (a, b) => InvertedIndex.merge(a, b)
+    def mergeFeaturePairs(a: (IndexMap, Bucket), b: (IndexMap, Bucket)): (IndexMap, Bucket) = {
+        val (map1, idx1, map2, idx2) = (a._1, a._2, b._1, b._2)
+            for (k <- map2.keys) {
+                if (map1.contains(k)) map1(k) = map1(k) ++ map2(k)
+                else map1 += (k -> map2(k))
+            }
+            require(idx1 == idx2, s"Values with different buckets have been given the same index. This shouldn't happen. values: $idx1, $idx2")
+            (map1, idx1)
+    }
 
 
-    def createFeaturePairs(vector: VectorWithNorms):Array[(Int, List[FeaturePair])] = {
+    def createFeaturePairs(vector: VectorWithNorms): Array[(Int, List[FeaturePair])] = {
         vector.vector.indices.map(i => (i, List(FeaturePair(vector.index, vector.vector(i)))))
     }
 
@@ -175,7 +178,7 @@ object InvertedIndex {
         new InvertedIndex(createFeaturePairs(a).toMap)
     }
 
-    def apply(a: List[(Int, List[FeaturePair])], buck:Int, tl:Int) = new InvertedIndex(a.toMap, buck, tl)
+    def apply(a: List[(Int, List[FeaturePair])], buck: Int, tl: Int) = new InvertedIndex(a.toMap, buck, tl)
 
     def apply(a: List[(Int, List[FeaturePair])]) = new InvertedIndex(a.toMap)
 
@@ -198,3 +201,17 @@ object InvertedIndex {
 
 
 case class FeaturePair(id: Long, weight: Double)
+
+
+object StringAccumulatorParam extends AccumulatorParam[ArrayBuffer[String]] {
+
+    def zero(initialValue:  ArrayBuffer[String]): ArrayBuffer[String] = {
+        ArrayBuffer("")
+    }
+
+    def addInPlace(s1: ArrayBuffer[String], s2: ArrayBuffer[String]): ArrayBuffer[String] = {
+        if(s1.length + s2.length < 2000)
+            s1++s2
+        else s1
+    }
+}

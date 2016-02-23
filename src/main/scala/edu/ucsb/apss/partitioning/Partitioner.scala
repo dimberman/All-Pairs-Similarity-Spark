@@ -30,8 +30,9 @@ trait Partitioner extends Serializable {
                 ga.filter { case (bId, buck) => isCandidate(buck, (bucket, tiedLeader)) && neededVecs.contains(bId) }
                   .flatMap {
                       case (ind, (buck, tv)) =>
-                          if (needsSplitting.contains((buck, tv)))
-                              List((ind, (bucket, v)),(ind + rNumBuckets, (bucket, v)))
+                          val add = ind + rNumBuckets + 1
+                          if (needsSplitting.contains((buck, tv)) && neededVecs.contains(add))
+                              List((ind, (bucket, v)),(ind + rNumBuckets + 1, (bucket, v)))
                           else List((ind, (bucket, v)))
                   }
         }
