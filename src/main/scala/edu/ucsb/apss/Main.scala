@@ -16,7 +16,7 @@ object Main {
     val log = Logger.getLogger(this.getClass)
     def main(args: Array[String]) {
         val conf = new SparkConf().setAppName("apss test").set("spark.dynamicAllocation.initialExecutors", "5").set("spark.yarn.executor.memoryOverhead","600")
-//          .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+          .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
         //        //TODO use kryoserializer
 //        //TODO MEMORY_ONLY_SER
         val sc = new SparkContext(conf)
@@ -31,9 +31,10 @@ object Main {
         val vecs = par.map(converter.convertTweetToVector)
         val driver = new HoldensPSSDriver
         val answer = driver.run(sc, vecs, 30, 20)
-        val x = answer.saveAsTextFile(s"s3n://apss-masters/answer-${sc.applicationId}.txt")
+        answer.saveAsTextFile(args(1))
 //        for(arg <- args){
 //            log.info(arg)
 //        }
+
     }
 }

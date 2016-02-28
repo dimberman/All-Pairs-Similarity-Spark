@@ -39,36 +39,6 @@ trait Partitioner extends Serializable {
     }
 
 
-    def prepareTasksForParallelization2[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: Set[Int]): RDD[((Int, Int), T)] = {
-        //        val BVBucketValues = r.context.broadcast(bucketValues)
-        val rNumBuckets = (numBuckets * (numBuckets + 1)) / 2
-        val BVSums = r.context.broadcast(getSums(numBuckets))
-        r.flatMap {
-            case ((bucket, tiedLeader), v) =>
-                val id = bucket * (bucket + 1) / 2 + tiedLeader
-                val ga = assignPartition(rNumBuckets, id, BVSums.value)
-                ga.filter { case (bId, buck) => isCandidate(buck, (bucket, tiedLeader)) && neededVecs.contains(bId) }.map { case (ind, (buck, tv)) => ((bucket, tv), v) }
-        }
-    }
-
-
-
-
-
-    def gtBinarySearch(a: Array[Int], key: Int): Int = {
-        var low: Int = 0
-        var high: Int = a.length - 1
-        var mid = 0
-        while (low <= high) {
-            mid = (low + high) >>> 1
-            val midVal: Int = a(mid)
-            if (midVal < key) low = mid + 1
-            else if (midVal > key) high = mid - 1
-            else if (mid == a.length - 1) return mid else return mid + 1
-        }
-        if (mid == a.length - 1) mid else mid + 1
-    }
-
 
     def assignPartition(actualNum: Int, currentVal: Int, sums: Array[Int]): List[(Int, (Int, Int))] = {
         actualNum % 2 match {
@@ -116,12 +86,6 @@ trait Partitioner extends Serializable {
 
     }
 
-
-    def toAssignment(sums: Array[Int], input: Int) = {
-
-
-    }
-
     def getSums(i: Int): Array[Int] = {
         val ret = new Array[Int](i + 1)
         ret(0) = 1
@@ -130,10 +94,4 @@ trait Partitioner extends Serializable {
         }
         ret
     }
-
-
-    def writeInvertedIndexesToHDFS(r: RDD[(Int, SparseVector)]) = {
-
-    }
-
 }

@@ -20,6 +20,11 @@ class HoldensPartitioner extends Serializable with Partitioner {
         v.values.map(math.abs).max
     }
 
+    def normalizer(v: SparseVector) = {
+        math.sqrt(v.values.map(a => a*a).sum)
+    }
+
+
     def sortByl1Norm(r: RDD[(SparseVector, Long)]) = {
         r.map(a => (l1Norm(a._1), a)).sortByKey(true)
     }
@@ -31,7 +36,7 @@ class HoldensPartitioner extends Serializable with Partitioner {
 
     def partitionByL1Sort(r: RDD[SparseVector], numBuckets: Int, numVectors: Long): RDD[(Int, VectorWithNorms)] = {
         //        val a = r.collect()
-        val sorted = sortByl1Norm(r.zipWithIndex()).map(f => VectorWithNorms(lInfNorm(f._2._1), l1Norm(f._2._1), f._2._1, f._2._2))
+        val sorted = sortByl1Norm(r.zipWithIndex()).map(f => VectorWithNorms(lInfNorm(f._2._1), l1Norm(f._2._1),normalizer(f._2._1), f._2._1, f._2._2))
         sorted.zipWithIndex().map { case (vector, index) => ((index / (numVectors / numBuckets)).toInt, vector) }
     }
 
@@ -40,7 +45,7 @@ class HoldensPartitioner extends Serializable with Partitioner {
         val sorted = partByl1Norm(r.zipWithIndex(), numBuckets).mapPartitionsWithIndex { case (idx, itr) =>
             itr.map {
                 case(l1, (vec, ind)) =>
-                    (idx, VectorWithNorms(lInfNorm(vec), l1Norm(vec), vec, ind))
+                    (idx, VectorWithNorms(lInfNorm(vec), l1Norm(vec), normalizer(vec), vec, ind))
             }
 
         }
@@ -90,7 +95,8 @@ class HoldensPartitioner extends Serializable with Partitioner {
         }
         val ret = persistedInputvecs.zip(buckets).map {
             case ((key, vec), matchedBucket) =>
-                val nVec = new VectorWithNorms(vec.lInf, vec.l1, vec.vector, vec.index, matchedBucket)
+                //TODO mutable values would be faster
+                val nVec = new VectorWithNorms(vec.lInf, vec.l1, vec.normalizer, vec.vector, vec.index, matchedBucket)
                 ((key, matchedBucket), nVec)
         }
         persistedInputvecs.unpersist()

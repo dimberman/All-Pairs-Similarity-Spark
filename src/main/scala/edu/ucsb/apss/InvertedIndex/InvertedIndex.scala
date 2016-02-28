@@ -4,6 +4,7 @@ import java.io.{File, PrintWriter}
 
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.PutObjectRequest
+import edu.ucsb.apss.InvertedIndex.InvertedIndex.InfoMap
 import edu.ucsb.apss.VectorWithNorms
 import edu.ucsb.apss.holdensDissimilarity.HoldensPSSDriver
 import edu.ucsb.apss.partitioning.HoldensPartitioner
@@ -24,10 +25,12 @@ import scala.util.Random
   */
 
 
-case class InvertedIndex(indices: Map[Int, List[FeaturePair]], bucket: Int = -1, tl: Int = -1)
+case class InvertedIndex(indices: Map[Int, List[FeaturePair]], bucket: Int = -1, tl: Int = -1, metrics:InfoMap = MMap())
 
 object InvertedIndex {
     type IndexMap = MMap[Int, List[FeaturePair]]
+    type InfoMap = MMap[Long, (Double, Double)]
+
     type Bucket = (Int, Int)
 
     val log = Logger.getLogger(this.getClass)
@@ -117,38 +120,40 @@ object InvertedIndex {
 
 
         val incorrectAccum:Accumulator [ArrayBuffer[String]] = bucketizedVectors.context.accumulator(ArrayBuffer(""))(StringAccumulatorParam)
-        val splitFeaturePairs:RDD[(Int, (IndexMap, Bucket))] = splitBucketizedVectors(bucketizedVectors, needsSplitting, numParts)
-
-
+        val splitFeaturePairs:RDD[(Int, (IndexMap, InfoMap, Bucket))] = splitBucketizedVectors(bucketizedVectors, needsSplitting, numParts)
 
         val mergedFeaturePairs = splitFeaturePairs.reduceByKey{
-            case((map1, idx1),(map2,idx2)) => {
+            case((map1, info1, idx1),(map2, info2, idx2)) => {
                 //                val (map1, idx1, map2, idx2) = (a._1, a._2, b._1, b._2)
                 for (k <- map2.keys) {
                     if (map1.contains(k)) map1(k) = map1(k) ++ map2(k)
                     else map1 += (k -> map2(k))
                 }
+                val mergedInfo = info1 ++ info2
                 if(idx1 != idx2) incorrectAccum +=  ArrayBuffer(s"index overlap shouldn't happen. values: $idx1, $idx2\n")
                 //                require(idx1 == idx2, s"Values with different buckets have been given the same index. This shouldn't happen. values: $idx1, $idx2")
-                (map1, idx1)
+                (map1, mergedInfo, idx1)
             }
 
         }
 
-        incorrectAccum.value.foreach(log.error(_))
+        incorrectAccum.value.tail.foreach(log.error(_))
 
         require(incorrectAccum.value.length < 2, "there were incorrectly partitioned inverted index values")
 
-        mergedFeaturePairs.mapValues { case (a, (buck, tl)) => new InvertedIndex(a.toMap, buck, tl) }
+        mergedFeaturePairs.mapValues { case (a, m, (buck, tl)) => new InvertedIndex(a.toMap, buck, tl, m) }
     }
 
 
-    def splitBucketizedVectors(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)],  needsSplitting: Map[(Int, Int), Long] = Map(), numParts:Int): RDD[(Int, (IndexMap, (Int, Int)))] = {
+
+    def splitBucketizedVectors(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)],  needsSplitting: Map[(Int, Int), Long] = Map(), numParts:Int): RDD[(Int, (IndexMap, InfoMap, Bucket))] = {
         bucketizedVectors.map {
             case (x, v) => {
                 val id = deriveID(x,needsSplitting,numParts)
                 val featureMap: IndexMap = MMap[Int, List[FeaturePair]]() ++= createFeaturePairs(v).toMap
-                (id, (featureMap, x))
+                val max:InfoMap = MMap[Long,(Double,Double)]() += (v.index -> (v.lInf, v.normalizer))
+
+                (id, (featureMap, max, x))
             }
         }
     }

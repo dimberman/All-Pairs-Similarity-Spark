@@ -17,7 +17,7 @@ class HoldensPSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val par = sc.parallelize(Seq("a a a a", "a a b b", "a b f g ", "b b b b"))
         val converter = new TweetToVectorConverter
         val vecs = par.map(converter.convertTweetToVector)
-        val answer = driver.run(sc, vecs, 2, .01)
+        val answer = driver.run(sc, vecs, 1, .01)
         val x = answer.collect().sortBy(_._1)
         x.foreach(println)
 
