@@ -99,7 +99,6 @@ class HoldensPSSDriver {
                                                 r_j -= weight_j
                                         }
                                 }
-                                //record results
                                 indexMap.keys.foreach {
                                     ind_i =>
                                         val l = indexMap(ind_i)
