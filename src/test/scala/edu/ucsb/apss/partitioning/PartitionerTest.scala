@@ -10,7 +10,7 @@ class PartitionerTest extends FlatSpec with Matchers with BeforeAndAfter{
     val sc = Context.sc
     val testValue = sc.parallelize(Seq((1,1), "hello world"))
     val testMapping = new BucketMapping(1, Set(2,3))
-    val partitioner = new HoldensPartitioner
+    val partitioner =  HoldensPartitioner
 
     "getSums" should "get the correct sum values to createPartitionAssignments can correctly tie values to buckets" in {
         val expected = Array(1,3, 6, 10)

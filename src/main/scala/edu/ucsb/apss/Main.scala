@@ -30,7 +30,7 @@ object Main {
         val converter = new TweetToVectorConverter
         val vecs = par.map(converter.convertTweetToVector)
         val driver = new HoldensPSSDriver
-        val answer = driver.run(sc, vecs, 30, 20)
+        val answer = driver.run(sc, vecs, 20, .9)
         answer.saveAsTextFile(args(1))
 //        for(arg <- args){
 //            log.info(arg)
