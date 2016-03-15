@@ -10,7 +10,7 @@ import java.util
 /**
   * Created by dimberman on 12/10/15.
   */
-class HoldensPartitioner extends Serializable with Partitioner {
+object HoldensPartitioner extends Serializable with Partitioner {
     def l1Norm(v: SparseVector) = {
         v.values.map(math.abs).sum
     }

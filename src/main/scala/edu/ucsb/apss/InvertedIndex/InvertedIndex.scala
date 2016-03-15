@@ -29,7 +29,7 @@ case class InvertedIndex(indices: Map[Int, List[FeaturePair]], bucket: Int = -1,
 
 object InvertedIndex {
     type IndexMap = MMap[Int, List[FeaturePair]]
-    type InfoMap = MMap[Long, (Double, Double)]
+    type InfoMap = MMap[Long, Double]
 
     type Bucket = (Int, Int)
 
@@ -69,7 +69,7 @@ object InvertedIndex {
         val bucketName = "apss-masters"
         val folderName = s"inverted-index/2-20-2016/b$numBuckets-t$threshold"
         val partitionDriver = new HoldensPSSDriver
-        val partitioner = new HoldensPartitioner
+        val partitioner =  HoldensPartitioner
 
         val s3client = new AmazonS3Client()
 
@@ -151,7 +151,7 @@ object InvertedIndex {
             case (x, v) => {
                 val id = deriveID(x,needsSplitting,numParts)
                 val featureMap: IndexMap = MMap[Int, List[FeaturePair]]() ++= createFeaturePairs(v).toMap
-                val max:InfoMap = MMap[Long,(Double,Double)]() += (v.index -> (v.lInf, v.normalizer))
+                val max:InfoMap = MMap[Long,Double]() += (v.index -> v.lInf)
 
                 (id, (featureMap, max, x))
             }
