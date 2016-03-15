@@ -32,7 +32,7 @@ class HoldensPSSDriver {
         val count = vectors.count
         val normalizedVectors = vectors.map {
             a =>
-                val normalizer = math.sqrt(HoldensPartitioner.l1Norm(a))
+                val normalizer = math.sqrt(normalizer(a))
                 for (i <- a.values.indices) a.values(i) = math.sqrt(a.values(i)) / normalizer
                 a
         }
