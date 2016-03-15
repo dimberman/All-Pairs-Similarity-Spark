@@ -2,6 +2,7 @@ package edu.ucsb.apss
 
 import edu.ucsb.apss.holdensDissimilarity.HoldensPSSDriver
 import edu.ucsb.apss.preprocessing.TweetToVectorConverter
+import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
 import org.apache.hadoop.hdfs.server.common.Storage
 import org.apache.spark.storage.StorageLevel
 import org.apache.log4j.Logger
@@ -27,8 +28,7 @@ object Main {
         println(s"taking in from ${args(0)}")
         println(s"default par: ${sc.defaultParallelism}")
 //        println(s"numBuckets = $idealNumExecutors")
-        val converter = new TweetToVectorConverter
-        val vecs = par.map(converter.convertTweetToVector)
+        val vecs = par.map(BagOfWordToVectorConverter.convert)
         val driver = new HoldensPSSDriver
         val answer = driver.run(sc, vecs, 30, 20)
         answer.saveAsTextFile(args(1))

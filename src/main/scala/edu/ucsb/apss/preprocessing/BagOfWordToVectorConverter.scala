@@ -11,13 +11,14 @@ import org.apache.spark.mllib.linalg.SparseVector
   * for usage in Spark
   */
 object BagOfWordToVectorConverter extends Serializable{
-    def convert(s: String) = {
+    def convert(s: String):SparseVector = {
         val hash = new HashingTF()
-        val split = s.split(" ").map(i => if(i!="")i.toInt else -1).filter(_ != -1)
+        val split = s.split(" ").zipWithIndex
+        if(split.length==1) return new SparseVector(1048576, Array(), Array())
+        val ind = split.filter(_._2 % 2 == 0).map(_._1.toInt).array
+        val values = split.filter(_._2 % 2 == 1).map(_._1.toDouble).array
 
-        val a = hash.transform(split).toSparse
-
-        a
+        new SparseVector(1048576, ind, values)
     }
 
     def revertToString(v:SparseVector):String = {
