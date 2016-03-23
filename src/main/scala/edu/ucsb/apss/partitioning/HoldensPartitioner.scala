@@ -1,16 +1,19 @@
 package edu.ucsb.apss.partitioning
 
 import edu.ucsb.apss.{BucketAlias, VectorWithNorms}
-import org.apache.spark.{RangePartitioner, SparkContext}
+import org.apache.spark.{Accumulator, RangePartitioner, SparkContext}
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
+import scala.collection.mutable.{HashMap => MMap}
 import java.util
 
 
 /**
   * Created by dimberman on 12/10/15.
   */
-class HoldensPartitioner extends Serializable with Partitioner {
+class HoldensPartitioner() extends Serializable with Partitioner {
+    val skipped = MMap[Int,Int]().withDefault(a => 0)
+
     def l1Norm(v: SparseVector) = {
         v.values.map(math.abs).sum
     }
