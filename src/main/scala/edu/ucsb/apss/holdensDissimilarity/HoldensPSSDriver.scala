@@ -44,13 +44,6 @@ class HoldensPSSDriver {
                 a
         }
         val l1partitionedVectors = partitioner.partitionByL1Sort(normalizedVectors, numBuckets, count)
-//        val l1p = l1partitionedVectors.collect()
-//        l1p.foreach{case(a,b) =>
-//            print(b.index+",")
-//            b.vector.indices.zip(b.vector.values).foreach(x => print("("+x._1+"-"+((math floor x._2*100)/100)+")"+","))
-//            println()
-//        }
-        //        l1partitionedVectors.countByKey().foreach(a => println("bucket size: "+ a))
         bucketSize = l1partitionedVectors.countByKey().head._2
         val bucketLeaders = partitioner.determineBucketLeaders(l1partitionedVectors).collect().sortBy(_._1)
         partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
@@ -69,16 +62,6 @@ class HoldensPSSDriver {
         //        val needsSplitting = bucketizedVectors.countByKey().filter(_._2 > 2500).map { case ((a, b), c) => ((a.toInt, b.toInt), c) }.toMap
 
         val invertedIndexes = generateInvertedIndexes(bucketizedVectors, Map(), numParts)
-//        val i = invertedIndexes.collect().head
-//        i._2.indices.foreach{case(featureIndex, pairs) =>
-//            print(featureIndex+",")
-//                pairs.map(_.id).sorted.foreach(b => print(b+","))
-//                println()
-//        }
-//        val z = i._2.indices.toList.filter(_._2.map(_.id).contains(0)).map(_._2.filter(_.id==0).map(_.weight))
-//        z.foreach(a => println(a.head))
-        //        val invIndexSums = generateInvertedIndexes(bucketizedVectors, Map(), numParts)
-
         val partitionedTasks = pairVectorsWithInvertedIndex(bucketizedVectors, invertedIndexes, numBuckets, Map()).persist(StorageLevel.MEMORY_AND_DISK_SER)
 
         val a: RDD[(Long, Long, Double)] = calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedTasks, threshold, numBuckets)
@@ -134,10 +117,6 @@ class HoldensPSSDriver {
         val neededVecs = invIndexes.filter(_._2.indices.nonEmpty).keys.sortBy(a => a).collect().toList
 
         val par = partitioner.prepareTasksForParallelization(partitionedVectors, numBuckets, neededVecs, needsSplitting).persist()
-//        val i = par.groupByKey().collect()
-
-        //        val parCount = par.countByKey().toList.sortBy(_._2)
-        //        parCount.foreach { case (idx, count) => log.info(s"partition $idx had $count vectors to calculate") }
         val partitionedTasks: RDD[((Int,Int), (Iterable[VectorWithNorms], Iterable[(InvertedIndex)]))] = par.cogroup(invIndexes, 30)
         partitionedTasks
     }
@@ -145,14 +124,10 @@ class HoldensPSSDriver {
 
     def calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedTasks: RDD[((Int,Int), (Iterable[VectorWithNorms], Iterable[InvertedIndex]))], threshold: Double, numBuckets: Int): RDD[(Long, Long, Double)] = {
         println(s"num partitions: ${partitionedTasks.partitions.length}")
-//        partitionedTasks.count()
         val skipped: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
         val reduced: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
         val all: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
         val indx: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
-
-//        val s = partitionedTasks.collect()
-
         val similarities: RDD[Similarity] = partitionedTasks.flatMap {
             case ((buck,tl), (vectors, i)) =>
                 // there should only be one inverted index

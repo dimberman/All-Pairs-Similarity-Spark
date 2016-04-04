@@ -53,11 +53,9 @@ class HoldensPSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val v = vecs.collect()
         val vec =vecs.first()
 
-        vec.values.foreach(println)
         val normalizer = HoldensPartitioner.normalizer(vec)
         for (i <- vec.values.indices) vec.values(i) = vec.values(i) / normalizer
 
-        vec.values.foreach(println)
         var sum = 0.0
         for (i <- vec.values.indices) sum += vec.values(i) * vec.values(i)
 

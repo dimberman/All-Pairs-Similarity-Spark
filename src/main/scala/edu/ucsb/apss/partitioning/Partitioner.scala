@@ -25,16 +25,12 @@ trait Partitioner extends Serializable {
     def prepareTasksForParallelization[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: List[(Int,Int)], needsSplitting: Map[(Int, Int), Long] = Map()): RDD[((Int,Int), T)] = {
         val numPartitions = (numBuckets * (numBuckets + 1)) / 2
         //TODO why is this 1 indexed?
-        println("*************************")
         //Counts the sums of buckets : i.e. 2 would be 4 because 0,0 1,0 and 1,1 come before it (1 indexed)
         val BVSums = r.context.broadcast(getSums(numBuckets))
 
         val intermediate = r.flatMap {
             case ((bucket, tiedLeader), v) =>
                 val vectorsToCompare = assignFixed(neededVecs.indexOf((bucket,tiedLeader)), neededVecs, BVSums.value)
-                print(s"($bucket,$tiedLeader): ")
-                vectorsToCompare.foreach(print)
-                println()
                 val filtered = vectorsToCompare.filter (
                     isCandidate(_, (bucket, tiedLeader))
                 )
