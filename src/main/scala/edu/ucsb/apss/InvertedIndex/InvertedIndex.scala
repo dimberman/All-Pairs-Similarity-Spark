@@ -4,7 +4,7 @@ import java.io.{File, PrintWriter}
 
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.PutObjectRequest
-import edu.ucsb.apss.InvertedIndex.InvertedIndex.InfoMap
+import edu.ucsb.apss.InvertedIndex.InvertedIndex.MaxMap
 import edu.ucsb.apss.VectorWithNorms
 import edu.ucsb.apss.holdensDissimilarity.HoldensPSSDriver
 import edu.ucsb.apss.partitioning.HoldensPartitioner
@@ -25,11 +25,11 @@ import scala.util.Random
   */
 
 
-case class InvertedIndex(indices: Map[Int, List[FeaturePair]], bucket: Int = -1, tl: Int = -1, metrics:InfoMap = MMap())
+case class InvertedIndex(indices: Map[Int, List[FeaturePair]], bucket: Int = -1, tl: Int = -1, maxMap:MaxMap = MMap())
 
 object InvertedIndex {
     type IndexMap = MMap[Int, List[FeaturePair]]
-    type InfoMap = MMap[Long, (Double, Double)]
+    type MaxMap = MMap[Long, Double]
 
     type Bucket = (Int, Int)
 
@@ -69,7 +69,7 @@ object InvertedIndex {
         val bucketName = "apss-masters"
         val folderName = s"inverted-index/2-20-2016/b$numBuckets-t$threshold"
         val partitionDriver = new HoldensPSSDriver
-        val partitioner = new HoldensPartitioner
+        val partitioner =  HoldensPartitioner
 
         val s3client = new AmazonS3Client()
 
@@ -116,11 +116,11 @@ object InvertedIndex {
     }
 
 
-    def generateInvertedIndexes(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)], needsSplitting: Map[(Int, Int), Long] = Map(), numParts:Int): RDD[(Int, InvertedIndex)] = {
+    def generateInvertedIndexes(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)], needsSplitting: Map[(Int, Int), Long] = Map(), numParts:Int): RDD[((Int,Int), InvertedIndex)] = {
 
 
         val incorrectAccum:Accumulator [ArrayBuffer[String]] = bucketizedVectors.context.accumulator(ArrayBuffer(""))(StringAccumulatorParam)
-        val splitFeaturePairs:RDD[(Int, (IndexMap, InfoMap, Bucket))] = splitBucketizedVectors(bucketizedVectors, needsSplitting, numParts)
+        val splitFeaturePairs:RDD[((Int,Int), (IndexMap, MaxMap, Bucket))] = splitBucketizedVectors(bucketizedVectors, needsSplitting, numParts)
 
         val mergedFeaturePairs = splitFeaturePairs.reduceByKey{
             case((map1, info1, idx1),(map2, info2, idx2)) => {
@@ -146,14 +146,12 @@ object InvertedIndex {
 
 
 
-    def splitBucketizedVectors(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)],  needsSplitting: Map[(Int, Int), Long] = Map(), numParts:Int): RDD[(Int, (IndexMap, InfoMap, Bucket))] = {
+    def splitBucketizedVectors(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)],  needsSplitting: Map[(Int, Int), Long] = Map(), numParts:Int): RDD[((Int,Int), (IndexMap, MaxMap, Bucket))] = {
         bucketizedVectors.map {
             case (x, v) => {
-                val id = deriveID(x,needsSplitting,numParts)
                 val featureMap: IndexMap = MMap[Int, List[FeaturePair]]() ++= createFeaturePairs(v).toMap
-                val max:InfoMap = MMap[Long,(Double,Double)]() += (v.index -> (v.lInf, v.normalizer))
-
-                (id, (featureMap, max, x))
+                val max:MaxMap = MMap[Long,Double]() += (v.index -> v.lInf)
+                (x, (featureMap, max, x))
             }
         }
     }

@@ -11,9 +11,8 @@ import java.util
 /**
   * Created by dimberman on 12/10/15.
   */
-class HoldensPartitioner() extends Serializable with Partitioner {
-    val skipped = MMap[Int,Int]().withDefault(a => 0)
 
+object HoldensPartitioner extends Serializable with Partitioner {
     def l1Norm(v: SparseVector) = {
         v.values.map(math.abs).sum
     }
@@ -24,7 +23,8 @@ class HoldensPartitioner() extends Serializable with Partitioner {
     }
 
     def normalizer(v: SparseVector) = {
-        math.sqrt(v.values.map(a => a*a).sum)
+        val a =   v.values.map(a => a*a).sum
+        math.sqrt(a)
     }
 
 
@@ -58,6 +58,7 @@ class HoldensPartitioner() extends Serializable with Partitioner {
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): RDD[(Int, Double)] = {
         r.map{case(k,v) => (k, v.l1)}.reduceByKey(math.max)
     }
+
 
 
 

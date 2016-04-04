@@ -31,7 +31,7 @@ object Main {
 //        println(s"numBuckets = $idealNumExecutors")
         val vecs = par.map(BagOfWordToVectorConverter.convert)
         val driver = new HoldensPSSDriver()
-        val answer = driver.run(sc, vecs, 30, 20)
+        val answer = driver.run(sc, vecs, 30, .9)
         answer.saveAsTextFile(args(1))
 //        for(arg <- args){
 //            log.info(arg)

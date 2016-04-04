@@ -8,7 +8,7 @@ import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
   * Created by dimberman on 12/10/15.
   */
 class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter {
-    val partitioner = new HoldensPartitioner()
+    val partitioner =  HoldensPartitioner
 
 
     val sc = Context.sc
