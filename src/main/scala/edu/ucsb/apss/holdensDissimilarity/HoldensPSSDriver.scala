@@ -84,31 +84,30 @@ class HoldensPSSDriver {
         breakdown.foreach { case (k, v) => skipped += k._2 * bucketSize * v }
 
         sPar = skipped
-        println(s"$skipped vector comparisons skipped due to static partitioning with a threshold of $threshold")
-        println()
-        println("***************************************")
-        println()
-        println("breakdown:")
+        log.info(s"breakdown: $skipped vector comparisons skipped due to static partitioning with a threshold of $threshold")
+        log.info("breakdown: ")
+        log.info("breakdown: ***************************************")
+        log.info("breakdown:")
         val numVecs = breakdown.values.sum
-        println("number of vectors: " + numVecs)
-        println("total number of pairs: " + numVecs * numVecs)
+        log.info("breakdown: number of vectors: " + numVecs)
+        log.info("breakdown: total number of pairs: " + numVecs * numVecs)
         val skippedPairs = breakdown.toList.map { case ((b, t), v) => ((b, t), v * t * bucketSize) }.map(a => a._2).sum
         val keptPairs = breakdown.toList.map { case ((b, t), v) => ((b, t), bucketSize * (numBuckets - t) * v) }.map(a => a._2).sum
-        println(s"skipped pairs: $skippedPairs")
-        println(s"computed pairs: $keptPairs")
-        println(s"${(numVecs * numVecs) - keptPairs - skipped} unnacounted for")
+        log.info(s"breakdown: skipped pairs: $skippedPairs")
+        log.info(s"breakdown: computed pairs: $keptPairs")
+        log.info(s"breakdown: ${(numVecs * numVecs) - keptPairs - skipped} unnacounted for")
 
         val total = skippedPairs + keptPairs
 
-        println("total considered: " + total)
-        println("total after static partitioning: " + (total - skipped))
+        log.info("breakdown: total considered: " + total)
+        log.info("breakdown: total after static partitioning: " + (total - skipped))
 
         tot = total
 
-        breakdown.toList.map { case ((b, t), v) => ((b, t), (v * t * bucketSize, v)) }.sortBy(_._1).foreach { case (k, (v,n)) => println(s"$k: $n vectors. $v skipped") }
-        println()
-        println("***************************************")
-        println()
+        breakdown.toList.map { case ((b, t), v) => ((b, t), (v * t * bucketSize, v)) }.sortBy(_._1).foreach { case (k, (v,n)) => log.info(s"$k: $n vectors. $v skipped") }
+        log.info("breakdown: ")
+        log.info("breakdown: ***************************************")
+        log.info("breakdown: ")
 
     }
 
@@ -126,7 +125,7 @@ class HoldensPSSDriver {
 
 
     def calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedTasks: RDD[((Int,Int), (Iterable[VectorWithNorms], Iterable[InvertedIndex]))], threshold: Double, numBuckets: Int): RDD[(Long, Long, Double)] = {
-        println(s"num partitions: ${partitionedTasks.partitions.length}")
+        log.info(s"num partitions: ${partitionedTasks.partitions.length}")
         val skipped: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
         val reduced: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
         val all: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
@@ -140,7 +139,7 @@ class HoldensPSSDriver {
                     case (inv) =>
                         val (bucket, invertedIndex) = (inv.bucket, inv.indices)
 
-                        //                println(s"calculating similarity for partition: $bucket")
+                        //                log.info(s"calculating similarity for partition: $bucket")
                         val indexMap = InvertedIndex.extractIndexMap(inv)
                         val score = new Array[Double](indexMap.size)
                         vectors.foreach {
@@ -172,7 +171,7 @@ class HoldensPSSDriver {
                                             reduced += 1
                                         }
                                         else {
-//                                            println(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
+//                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
                                             skipped += 1
                                             all += 1
                                         }
@@ -197,12 +196,12 @@ class HoldensPSSDriver {
                 answer
         } .persist()
         similarities.count()
-        println(s"${all.value} pairs considered after duplicate pair removal")
-        println(skipped.value + " vector pairs skipped due to dynamic partitioning")
+        log.info(s"breakdown: ${all.value} pairs considered after duplicate pair removal")
+        log.info("breakdown: "+skipped.value + " vector pairs skipped due to dynamic partitioning")
         dPar = all.value
-        println(reduced.value + " vector pairs returned after dynamic partitioning")
-        println("index vecs " + indx.value)
-        println((tot/2 - sPar - (dPar-numVectors)) + " values unaccounted for")
+        log.info("breakdown: "+reduced.value + " vector pairs returned after dynamic partitioning")
+        log.info("breakdown: index vecs " + indx.value)
+        log.info("breakdown: "+(tot/2 - sPar - (dPar-numVectors)) + " values unaccounted for")
         similarities.map(s => (s.i, s.j, s.similarity))
     }
 }
