@@ -7,7 +7,7 @@ import org.apache.hadoop.hdfs.server.common.Storage
 import org.apache.spark.storage.StorageLevel
 import org.apache.log4j.Logger
 
-import org.apache.spark.{SparkContext, SparkConf}
+import org.apache.spark.{Accumulator, SparkContext, SparkConf}
 
 /**
   * Created by dimberman on 1/23/16.
@@ -25,6 +25,7 @@ object Main {
         //        val idealNumExecutors = math.max(1,math.sqrt(sc.defaultParallelism * 4 ).toInt)
 //        val idealNumExecutors = args(1).toInt
 
+        val skippedPairs:Accumulator[Int] = sc.accumulator(0)
         println(s"taking in from ${args(0)}")
         println(s"default par: ${sc.defaultParallelism}")
 //        println(s"numBuckets = $idealNumExecutors")

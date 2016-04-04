@@ -19,72 +19,92 @@ trait Partitioner extends Serializable {
       */
 
 
-    def prepareTasksForParallelization[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: Set[Int], needsSplitting: Map[(Int, Int), Long] = Map()): RDD[(Int, (Int, T))] = {
-        //        val BVBucketValues = r.context.broadcast(bucketValues)
-        val rNumBuckets = (numBuckets * (numBuckets + 1)) / 2
+
+
+
+    def prepareTasksForParallelization[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: List[(Int,Int)], needsSplitting: Map[(Int, Int), Long] = Map()): RDD[((Int,Int), T)] = {
+        val numPartitions = (numBuckets * (numBuckets + 1)) / 2
+        //TODO why is this 1 indexed?
+        //Counts the sums of buckets : i.e. 2 would be 4 because 0,0 1,0 and 1,1 come before it (1 indexed)
         val BVSums = r.context.broadcast(getSums(numBuckets))
-        r.flatMap {
+
+        val intermediate = r.flatMap {
             case ((bucket, tiedLeader), v) =>
-                val id = bucket * (bucket + 1) / 2 + tiedLeader
-                val ga = assignPartition(rNumBuckets, id, BVSums.value)
-                ga.filter { case (bId, buck) => isCandidate(buck, (bucket, tiedLeader)) && neededVecs.contains(bId) }
-                  .flatMap {
-                      case (ind, (buck, tv)) =>
-                          val add = ind + rNumBuckets + 1
-                          if (needsSplitting.contains((buck, tv)) && neededVecs.contains(add))
-                              List((ind, (bucket, v)),(ind + rNumBuckets + 1, (bucket, v)))
-                          else List((ind, (bucket, v)))
-                  }
-        }
-    }
+                val vectorsToCompare = assignFixed(neededVecs.indexOf((bucket,tiedLeader)), neededVecs, BVSums.value)
+                val filtered = vectorsToCompare.filter (
+                    isCandidate(_, (bucket, tiedLeader))
+                )
 
+                filtered.map {
+                    case buck =>
 
-
-    def assignPartition(actualNum: Int, currentVal: Int, sums: Array[Int]): List[(Int, (Int, Int))] = {
-        actualNum % 2 match {
-            case 1 =>
-                val e = List.range(currentVal + 1, (currentVal + 1) + (actualNum - 1) / 2) :+ currentVal
-                val x = e.map(_ % actualNum)
-                val v = pullTiedVectors(x, sums, x.head)
-                e.zip(v)
-            case 0 =>
-                if (currentVal < actualNum / 2) {
-                    val e = List.range(currentVal + 1, (currentVal + 1) + actualNum / 2).map(_ % actualNum) :+ currentVal
-                    val v = pullTiedVectors(e, sums, e.head)
-                    e.zip(v)
-                }
-                else {
-                    val x = (currentVal + 1) + actualNum / 2 - 1
-                    val e = List.range(currentVal + 1, x).map(_ % actualNum) :+ currentVal
-                    val v = pullTiedVectors(e, sums, e.head)
-                    e.zip(v)
+                        //                          if (needsSplitting.contains((buck, tv)) && neededVecs.contains(add))
+                        //                              List((ind, (bucket, v)),(ind + numPartitions + 1, (bucket, v)))
+                        (buck, v)
+                    //                          List((ind, (bucket, v)))
                 }
         }
-
+        intermediate
     }
 
-    def pullTiedVectors(list: List[Int], sums: Array[Int], startInd: Int): List[(Int, Int)] = {
-        val a = list.scanLeft((0, 0)) {
-            case ((bucket, tv), ind) =>
-                var buck = bucket
-                if (sums(buck) > ind) buck = 0
-                while (ind >= sums(buck)) buck += 1
-                val b =
-                    if (ind != 0)
-                        ind - sums(buck - 1)
-                    else 0
-                (buck, b)
-        }
-        a.tail
-
-    }
 
 
     def isCandidate(a: (Int, Int), b: (Int, Int)): Boolean = {
-        if (a._2 > b._1) false
-        else true
+        //        if (a._2 > b._1 && a._1 > b._1) false
+        //        else true
+
+        true
+    }
+
+    def assignFixed(startingIndex:Int, neededVecs:List[(Int,Int)], sums:Array[Int]):List[(Int,Int)] = {
+        val numberOfNeeded = neededVecs.length
+        numberOfNeeded % 2 match {
+            case 1 =>
+                val proposedRange = List.range(startingIndex + 1, (startingIndex + 1) + (numberOfNeeded - 1) / 2) :+ startingIndex
+                val modded = proposedRange.map(a => a%numberOfNeeded).toSet
+                val pairs = neededVecs.zipWithIndex.filter(a => modded.contains(a._2)).map(_._1)
+                pairs
+            case 0 =>
+                if (startingIndex < numberOfNeeded / 2) {
+                    val e = (List.range(startingIndex + 1, (startingIndex + 1) + numberOfNeeded / 2).map(_ % numberOfNeeded) :+ startingIndex).toSet
+                    val pairs = neededVecs.zipWithIndex.filter(a => e.contains(a._2)).map(_._1)
+                    pairs
+                }
+                else {
+                    val x = (startingIndex + 1) + numberOfNeeded / 2 - 1
+                    val e = (List.range(startingIndex + 1, x).map(_ % numberOfNeeded) :+ startingIndex).toSet
+                    val pairs = neededVecs.zipWithIndex.filter(a => e.contains(a._2)).map(_._1)
+                    pairs
+                }   
+        }
+        
+    }
+    
+    
+
+
+
+    def ltBinarySearch(a: List[Int], key: Int): Int = {
+        var low: Int = 0
+        var high: Int = a.length - 1
+        while (low <= high) {
+            val mid: Int = (low + high) >>> 1
+            val midVal: Double = a(mid)
+            if (midVal < key) low = mid + 1
+            else if (midVal > key) high = mid - 1
+            else return a(mid)
+        }
+        if(low == 0) 0
+        else {
+            val mid: Int = (low + high) >>> 1
+            a(mid)
+        }
 
     }
+
+
+
+
 
     def getSums(i: Int): Array[Int] = {
         val ret = new Array[Int](i + 1)

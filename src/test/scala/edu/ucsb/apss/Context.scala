@@ -12,4 +12,5 @@ object Context {
   Logger.getLogger("org").setLevel(Level.WARN)
   Logger.getLogger("akka").setLevel(Level.WARN)
    val sc = new SparkContext(conf)
+    val sp = sc.accumulator(0)
 }

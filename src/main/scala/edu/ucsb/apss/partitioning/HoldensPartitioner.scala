@@ -1,15 +1,17 @@
 package edu.ucsb.apss.partitioning
 
 import edu.ucsb.apss.{BucketAlias, VectorWithNorms}
-import org.apache.spark.{RangePartitioner, SparkContext}
+import org.apache.spark.{Accumulator, RangePartitioner, SparkContext}
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
+import scala.collection.mutable.{HashMap => MMap}
 import java.util
 
 
 /**
   * Created by dimberman on 12/10/15.
   */
+
 object HoldensPartitioner extends Serializable with Partitioner {
     def l1Norm(v: SparseVector) = {
         v.values.map(math.abs).sum
@@ -21,7 +23,8 @@ object HoldensPartitioner extends Serializable with Partitioner {
     }
 
     def normalizer(v: SparseVector) = {
-        math.sqrt(v.values.map(a => a*a).sum)
+        val a =   v.values.map(a => a*a).sum
+        math.sqrt(a)
     }
 
 
@@ -55,6 +58,7 @@ object HoldensPartitioner extends Serializable with Partitioner {
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): RDD[(Int, Double)] = {
         r.map{case(k,v) => (k, v.l1)}.reduceByKey(math.max)
     }
+
 
 
 

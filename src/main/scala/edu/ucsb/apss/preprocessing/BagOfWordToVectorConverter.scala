@@ -14,6 +14,8 @@ object BagOfWordToVectorConverter extends Serializable{
     def convert(s: String):SparseVector = {
         val hash = new HashingTF()
         val split = s.split(" ").zipWithIndex
+        if (split.length % 2 == 1)
+            println("error")
         if(split.length==1) return new SparseVector(1048576, Array(), Array())
         val ind = split.filter(_._2 % 2 == 0).map(_._1.toInt).array
         val values = split.filter(_._2 % 2 == 1).map(_._1.toDouble).array
