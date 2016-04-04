@@ -4,6 +4,8 @@ import edu.ucsb.apss.InvertedIndex.InvertedIndex._
 import edu.ucsb.apss.InvertedIndex.InvertedIndex
 import edu.ucsb.apss.VectorWithNorms
 
+import scala.collection.mutable
+
 //import edu.ucsb.apss.metrics.PartitionMap
 import edu.ucsb.apss.partitioning.HoldensPartitioner
 import org.apache.spark.{Accumulator, SparkContext}
@@ -130,11 +132,18 @@ class HoldensPSSDriver {
         val reduced: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
         val all: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
         val indx: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
+
+        partitionedTasks.count()
+
+
+
         val similarities: RDD[Similarity] = partitionedTasks.flatMap {
             case ((buck,tl), (vectors, i)) =>
-                // there should only be one inverted index
+//                // there should only be one inverted index
                 require(i.nonEmpty, s"there was no invertedIndex for this bucket with key ($buck, $tl)")
-                val answer = ListBuffer.empty[Similarity]
+//                val answer = ListBuffer.empty[Similarity]
+                val answer = new BoundedPriorityQueue[Similarity](1000)
+
                 i.foreach {
                     case (inv) =>
                         val (bucket, invertedIndex) = (inv.bucket, inv.indices)
@@ -160,41 +169,41 @@ class HoldensPSSDriver {
 //                                                r_j -= weight_j
                                         }
                                 }
-                                indexMap.keys.foreach {
-                                    ind_i =>
-                                        val l = indexMap(ind_i)
-                                        val ind_j = v_j.index
-                                        if (score(l) > threshold && ind_i != ind_j) {
-                                            val c = Similarity(ind_i, ind_j.toLong, score(l))
-                                            answer += c
-                                            all += 1
-                                            reduced += 1
-                                        }
-                                        else {
-//                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
-                                            skipped += 1
-                                            all += 1
-                                        }
-                                }
-                                indexMap.keys.foreach {
-                                    ind_i =>
-                                        val l = indexMap(ind_i)
-                                        val ind_j = v_j.index
-                                        if (score(l) > threshold && ind_i != ind_j) {
-                                            val c = Similarity(ind_i, ind_j.toLong, score(l))
-                                            answer += c
-                                        }
-                                }
-                                for (l <- score.indices) {
-                                    score(l) = 0
-                                }
+//                                indexMap.keys.foreach {
+//                                    ind_i =>
+//                                        val l = indexMap(ind_i)
+//                                        val ind_j = v_j.index
+//                                        if (score(l) > threshold && ind_i != ind_j) {
+//                                            val c = Similarity(ind_i, ind_j.toLong, score(l))
+//                                            answer += c
+//                                            all += 1
+//                                            reduced += 1
+//                                        }
+//                                        else {
+////                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
+//                                            skipped += 1
+//                                            all += 1
+//                                        }
+//                                }
+//                                indexMap.keys.foreach {
+//                                    ind_i =>
+//                                        val l = indexMap(ind_i)
+//                                        val ind_j = v_j.index
+//                                        if (score(l) > threshold && ind_i != ind_j) {
+//                                            val c = Similarity(ind_i, ind_j.toLong, score(l))
+////                                            answer += c
+//                                        }
+//                                }
+//                                for (l <- score.indices) {
+//                                    score(l) = 0
+//                                }
                         }
 
 
                 }
-
-                answer
-        } .persist()
+                  List()
+//                answer
+        }
         similarities.count()
         log.info(s"breakdown: ${all.value} pairs considered after duplicate pair removal")
         log.info("breakdown: "+skipped.value + " vector pairs skipped due to dynamic partitioning")

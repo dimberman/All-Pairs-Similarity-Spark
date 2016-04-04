@@ -29,9 +29,9 @@ object Main {
         println(s"taking in from ${args(0)}")
         println(s"default par: ${sc.defaultParallelism}")
 //        println(s"numBuckets = $idealNumExecutors")
-        val vecs = par.map(BagOfWordToVectorConverter.convert)
+        val vecs = par.map((new TweetToVectorConverter).convertTweetToVector)
         val driver = new HoldensPSSDriver
-        val answer = driver.run(sc, vecs, 20, .9)
+        val answer = driver.run(sc, vecs, 40, .9)
         answer.saveAsTextFile(args(1))
 //        for(arg <- args){
 //            log.info(arg)
