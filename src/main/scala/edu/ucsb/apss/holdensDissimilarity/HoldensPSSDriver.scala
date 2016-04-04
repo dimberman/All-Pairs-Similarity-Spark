@@ -122,11 +122,6 @@ class HoldensPSSDriver {
                         answer.toList
                 }
         } .persist(StorageLevel.MEMORY_AND_DISK_SER)
-
-
-
-
-        similarities.collect()
         similarities.flatMap(x => x).map(s => (s.i, s.j, s.similarity))
     }
 
