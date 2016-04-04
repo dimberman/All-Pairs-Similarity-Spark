@@ -31,6 +31,7 @@ object InvertedIndex {
     type IndexMap = MMap[Int, List[FeaturePair]]
     type MaxMap = MMap[Long, Double]
 
+
     type Bucket = (Int, Int)
 
     val log = Logger.getLogger(this.getClass)

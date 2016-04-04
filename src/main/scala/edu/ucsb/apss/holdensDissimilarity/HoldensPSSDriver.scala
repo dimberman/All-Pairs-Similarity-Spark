@@ -17,6 +17,9 @@ import scala.collection.mutable.{HashMap => MMap}
 import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 
 
+import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+
+
 /**
   * Created by dimberman on 1/3/16.
   */
@@ -174,10 +177,21 @@ class HoldensPSSDriver {
                                             all += 1
                                         }
                                 }
+                                indexMap.keys.foreach {
+                                    ind_i =>
+                                        val l = indexMap(ind_i)
+                                        val ind_j = v_j.index
+                                        if (score(l) > threshold && ind_i != ind_j) {
+                                            val c = Similarity(ind_i, ind_j.toLong, score(l))
+                                            answer += c
+                                        }
+                                }
                                 for (l <- score.indices) {
                                     score(l) = 0
                                 }
                         }
+
+
                 }
 
                 answer
@@ -191,5 +205,4 @@ class HoldensPSSDriver {
         println((tot/2 - sPar - (dPar-numVectors)) + " values unaccounted for")
         similarities.map(s => (s.i, s.j, s.similarity))
     }
-
 }

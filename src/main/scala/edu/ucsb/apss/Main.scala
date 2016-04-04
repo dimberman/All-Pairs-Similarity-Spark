@@ -30,8 +30,8 @@ object Main {
         println(s"default par: ${sc.defaultParallelism}")
 //        println(s"numBuckets = $idealNumExecutors")
         val vecs = par.map(BagOfWordToVectorConverter.convert)
-        val driver = new HoldensPSSDriver()
-        val answer = driver.run(sc, vecs, 30, .9)
+        val driver = new HoldensPSSDriver
+        val answer = driver.run(sc, vecs, 20, .9)
         answer.saveAsTextFile(args(1))
 //        for(arg <- args){
 //            log.info(arg)
