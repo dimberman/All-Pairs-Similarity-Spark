@@ -67,7 +67,7 @@ class HoldensPSSDriver {
         //        val needsSplitting = bucketizedVectors.countByKey().filter(_._2 > 2500).map { case ((a, b), c) => ((a.toInt, b.toInt), c) }.toMap
 
         val invertedIndexes = generateInvertedIndexes(bucketizedVectors, Map(), numParts)
-        val partitionedTasks = pairVectorsWithInvertedIndex(bucketizedVectors, invertedIndexes, numBuckets, Map()).persist(StorageLevel.MEMORY_AND_DISK_SER)
+        val partitionedTasks = pairVectorsWithInvertedIndex(bucketizedVectors, invertedIndexes, numBuckets, Map())
 
         val a: RDD[(Long, Long, Double)] = calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedTasks, threshold, numBuckets)
 
@@ -108,7 +108,6 @@ class HoldensPSSDriver {
 
         breakdown.toList.map { case ((b, t), v) => ((b, t), (v * t * bucketSize, v)) }.sortBy(_._1).foreach { case (k, (v,n)) => log.info(s"$k: $n vectors. $v skipped") }
         log.info("breakdown: ")
-        log.info("breakdown: ***************************************")
         log.info("breakdown: ")
 
     }
@@ -117,30 +116,39 @@ class HoldensPSSDriver {
     def pullKey(a: (Int, Int)) = (a._1 * (a._1 + 1)) / 2 + a._2
 
 
-    def pairVectorsWithInvertedIndex(partitionedVectors: RDD[((Int, Int), VectorWithNorms)], invIndexes: RDD[((Int,Int), (InvertedIndex))], numBuckets: Int, needsSplitting: Map[(Int, Int), Long]): RDD[((Int,Int), (Iterable[VectorWithNorms], Iterable[InvertedIndex]))] = {
+    def pairVectorsWithInvertedIndex(partitionedVectors: RDD[((Int, Int), VectorWithNorms)], invIndexes: RDD[((Int,Int), (InvertedIndex))], numBuckets: Int, needsSplitting: Map[(Int, Int), Long]): RDD[(Int, (Iterable[VectorWithNorms], Iterable[InvertedIndex]))] = {
         val neededVecs = invIndexes.filter(_._2.indices.nonEmpty).keys.sortBy(a => a).collect().toList
 
+        log.info("needed vecs:")
+        log.info(neededVecs.foldRight("")(_+","+_))
+        log.info(neededVecs.map(input => input._1*(input._1 + 1)/2 + 1 + input._2).foldRight("")(_+","+_))
+
         val par = partitioner.prepareTasksForParallelization(partitionedVectors, numBuckets, neededVecs, needsSplitting).persist()
-        val partitionedTasks: RDD[((Int,Int), (Iterable[VectorWithNorms], Iterable[(InvertedIndex)]))] = par.cogroup(invIndexes, 30)
+        val changed = invIndexes.map{case(a,b) =>
+            def partitionHash(input:(Int,Int)) = {
+                input._1*(input._1 + 1)/2 + 1 + input._2
+            }
+            (partitionHash(a),b)}
+        val partitionedTasks: RDD[(Int, (Iterable[VectorWithNorms], Iterable[(InvertedIndex)]))] = par.cogroup(changed, 30)
         partitionedTasks
     }
 
 
-    def calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedTasks: RDD[((Int,Int), (Iterable[VectorWithNorms], Iterable[InvertedIndex]))], threshold: Double, numBuckets: Int): RDD[(Long, Long, Double)] = {
+    def calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedTasks: RDD[(Int, (Iterable[VectorWithNorms], Iterable[InvertedIndex]))], threshold: Double, numBuckets: Int): RDD[(Long, Long, Double)] = {
         log.info(s"num partitions: ${partitionedTasks.partitions.length}")
-        val skipped: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
-        val reduced: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
-        val all: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
-        val indx: Accumulator[Int] = partitionedTasks.context.accumulator[Int](0)
+        val skipped: Accumulator[Long] = partitionedTasks.context.accumulator[Long](0)
+        val reduced: Accumulator[Long] = partitionedTasks.context.accumulator[Long](0)
+        val all: Accumulator[Long] = partitionedTasks.context.accumulator[Long](0)
+        val indx: Accumulator[Long] = partitionedTasks.context.accumulator[Long](0)
 
         partitionedTasks.count()
 
 
 
         val similarities: RDD[Similarity] = partitionedTasks.flatMap {
-            case ((buck,tl), (vectors, i)) =>
+            case (id, (vectors, i)) =>
 //                // there should only be one inverted index
-                require(i.nonEmpty, s"there was no invertedIndex for this bucket with key ($buck, $tl)")
+                require(i.nonEmpty, s"there was no invertedIndex for this bucket with key ($id)")
 //                val answer = ListBuffer.empty[Similarity]
                 val answer = new BoundedPriorityQueue[Similarity](1000)
 
@@ -169,48 +177,48 @@ class HoldensPSSDriver {
 //                                                r_j -= weight_j
                                         }
                                 }
-//                                indexMap.keys.foreach {
-//                                    ind_i =>
-//                                        val l = indexMap(ind_i)
-//                                        val ind_j = v_j.index
-//                                        if (score(l) > threshold && ind_i != ind_j) {
-//                                            val c = Similarity(ind_i, ind_j.toLong, score(l))
-//                                            answer += c
-//                                            all += 1
-//                                            reduced += 1
-//                                        }
-//                                        else {
-////                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
-//                                            skipped += 1
-//                                            all += 1
-//                                        }
-//                                }
-//                                indexMap.keys.foreach {
-//                                    ind_i =>
-//                                        val l = indexMap(ind_i)
-//                                        val ind_j = v_j.index
-//                                        if (score(l) > threshold && ind_i != ind_j) {
-//                                            val c = Similarity(ind_i, ind_j.toLong, score(l))
-////                                            answer += c
-//                                        }
-//                                }
-//                                for (l <- score.indices) {
-//                                    score(l) = 0
-//                                }
+                                indexMap.keys.foreach {
+                                    ind_i =>
+                                        val l = indexMap(ind_i)
+                                        val ind_j = v_j.index
+                                        if (score(l) > threshold && ind_i != ind_j) {
+                                            val c = Similarity(ind_i, ind_j.toLong, score(l))
+                                            answer += c
+                                            all += 1
+                                            reduced += 1
+                                        }
+                                        else {
+//                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
+                                            skipped += 1
+                                            all += 1
+                                        }
+                                }
+                                indexMap.keys.foreach {
+                                    ind_i =>
+                                        val l = indexMap(ind_i)
+                                        val ind_j = v_j.index
+                                        if (score(l) > threshold && ind_i != ind_j) {
+                                            val c = Similarity(ind_i, ind_j.toLong, score(l))
+                                            answer += c
+                                        }
+                                }
+                                for (l <- score.indices) {
+                                    score(l) = 0
+                                }
                         }
 
 
                 }
-                  List()
-//                answer
-        }
+//                  List()
+                answer
+        }.persist()
         similarities.count()
         log.info(s"breakdown: ${all.value} pairs considered after duplicate pair removal")
         log.info("breakdown: "+skipped.value + " vector pairs skipped due to dynamic partitioning")
         dPar = all.value
         log.info("breakdown: "+reduced.value + " vector pairs returned after dynamic partitioning")
-        log.info("breakdown: index vecs " + indx.value)
-        log.info("breakdown: "+(tot/2 - sPar - (dPar-numVectors)) + " values unaccounted for")
+//        log.info("breakdown: index vecs " + indx.value)
+        log.info("breakdown: "+(all.value -skipped.value - reduced.value) + " values unaccounted for")
         similarities.map(s => (s.i, s.j, s.similarity))
     }
 }

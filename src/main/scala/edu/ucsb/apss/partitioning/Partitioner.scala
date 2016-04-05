@@ -21,8 +21,11 @@ trait Partitioner extends Serializable {
 
 
 
+    def partitionHash(input:(Int,Int)) = {
+        input._1*(input._1 + 1)/2 + 1 + input._2
+    }
 
-    def prepareTasksForParallelization[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: List[(Int,Int)], needsSplitting: Map[(Int, Int), Long] = Map()): RDD[((Int,Int), T)] = {
+    def prepareTasksForParallelization[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: List[(Int,Int)], needsSplitting: Map[(Int, Int), Long] = Map()): RDD[(Int, T)] = {
         val numPartitions = (numBuckets * (numBuckets + 1)) / 2
         //TODO why is this 1 indexed?
         //Counts the sums of buckets : i.e. 2 would be 4 because 0,0 1,0 and 1,1 come before it (1 indexed)
@@ -40,7 +43,7 @@ trait Partitioner extends Serializable {
 
                         //                          if (needsSplitting.contains((buck, tv)) && neededVecs.contains(add))
                         //                              List((ind, (bucket, v)),(ind + numPartitions + 1, (bucket, v)))
-                        (buck, v)
+                        (partitionHash(buck), v)
                     //                          List((ind, (bucket, v)))
                 }
         }
@@ -50,10 +53,8 @@ trait Partitioner extends Serializable {
 
 
     def isCandidate(a: (Int, Int), b: (Int, Int)): Boolean = {
-        //        if (a._2 > b._1 && a._1 > b._1) false
-        //        else true
-
-        true
+                if ((a._2 > b._1 && a._1 > b._1) || (b._2 > a._1 && b._1 > a._1)) false
+                else true
     }
 
     def assignFixed(startingIndex:Int, neededVecs:List[(Int,Int)], sums:Array[Int]):List[(Int,Int)] = {

@@ -31,8 +31,14 @@ object Main {
 //        println(s"numBuckets = $idealNumExecutors")
         val vecs = par.map((new TweetToVectorConverter).convertTweetToVector)
         val driver = new HoldensPSSDriver
-        val answer = driver.run(sc, vecs, 40, .9)
-        answer.saveAsTextFile(args(1))
+        for(i <- 0 to 9){
+            val threshold = .1 * i
+            val t1= System.currentTimeMillis()
+            driver.run(sc, vecs, 40, threshold).count()
+            val current = System.currentTimeMillis() - t1
+            log.info(s"breakdown: apss with thresshold $threshold took ${current/1000} seconds")
+        }
+//        answer.saveAsTextFile(args(1))
 //        for(arg <- args){
 //            log.info(arg)
 //        }
