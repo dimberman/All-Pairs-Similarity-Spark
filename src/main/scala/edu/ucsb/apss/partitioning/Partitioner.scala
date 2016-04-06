@@ -7,6 +7,23 @@ import org.apache.spark.rdd.RDD
 /**
   * Created by dimberman on 1/12/16.
   */
+object PartitionHasher extends Serializable{
+    def partitionHash(input:(Int,Int)) = {
+        input._1*(input._1 + 1)/2 + 1 + input._2
+    }
+
+
+    def partitionUnHash(input:Int) = {
+        var bucket = 0
+        while(bucket<=input) bucket = bucket*2 + 1
+        bucket = bucket - 1
+        (bucket, input-bucket)
+    }
+
+}
+
+
+
 trait Partitioner extends Serializable {
 
     /**
@@ -53,7 +70,8 @@ trait Partitioner extends Serializable {
 
 
     def isCandidate(a: (Int, Int), b: (Int, Int)): Boolean = {
-                if ((a._2 > b._1 && a._1 > b._1) || (b._2 > a._1 && b._1 > a._1)) false
+                if(a._1 == a._2 || b._1 == b._2) true
+                else if ((a._2 > b._1 && a._1 > b._1) || (b._2 > a._1 && b._1 > a._1)) false
                 else true
     }
 

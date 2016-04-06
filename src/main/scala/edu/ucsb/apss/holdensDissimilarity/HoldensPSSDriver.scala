@@ -79,34 +79,49 @@ class HoldensPSSDriver {
 
 
     def staticPartitioningBreakdown(bucketizedVectors: RDD[BucketizedVector], threshold: Double, numBuckets: Int): Unit = {
-        var skipped: Long = 0
+//        var skipped: Long = 0
 
         val bv = bucketizedVectors.collect()
         val breakdown = bucketizedVectors.countByKey()
-        breakdown.foreach { case (k, v) => skipped += k._2 * bucketSize * v }
+//        breakdown.foreach { case (k, v) => skipped += k._2 * bucketSize * v }
 
-        sPar = skipped
-        log.info(s"breakdown: $skipped vector comparisons skipped due to static partitioning with a threshold of $threshold")
-        log.info("breakdown: ")
-        log.info("breakdown: ***************************************")
-        log.info("breakdown:")
+        log.info("breakdown: *******************************************************")
+        log.info("breakdown: *******************************************************")
+        log.info(s"breakdown: ******** computing PSS with a threshold of $threshold ********")
+
         val numVecs = breakdown.values.sum
         log.info("breakdown: number of vectors: " + numVecs)
         log.info("breakdown: total number of pairs: " + numVecs * numVecs)
-        val skippedPairs = breakdown.toList.map { case ((b, t), v) => ((b, t), v * t * bucketSize) }.map(a => a._2).sum
-        val keptPairs = breakdown.toList.map { case ((b, t), v) => ((b, t), bucketSize * (numBuckets - t) * v) }.map(a => a._2).sum
+        val skippedPairs = breakdown.toList.map {
+            case ((b, t), v) =>
+                  val modded = if (b==t) 0 else t+1
+                ((b, t), v * modded * bucketSize)
+        }.map(a => a._2).sum
+        val keptPairs = breakdown.toList.map {
+            case ((b, t), v) =>
+                val modded = if (b==t) 0 else t+1
+                ((b, t), bucketSize * (numBuckets - modded) * v) }.map(a => a._2).sum
+        log.info("breakdown: *******************************************************")
+
+        log.info(s"breakdown: static partitioning:")
+
         log.info(s"breakdown: skipped pairs: $skippedPairs")
-        log.info(s"breakdown: computed pairs: $keptPairs")
-        log.info(s"breakdown: ${(numVecs * numVecs) - keptPairs - skipped} unnacounted for")
+        log.info(s"breakdown: kept pairs: $keptPairs")
+        log.info(s"breakdown: ${(numVecs * numVecs) - keptPairs - skippedPairs} unnacounted for")
+        sPar = skippedPairs
 
         val total = skippedPairs + keptPairs
 
-        log.info("breakdown: total considered: " + total)
-        log.info("breakdown: total after static partitioning: " + (total - skipped))
-
         tot = total
+        log.info("breakdown: *******************************************************")
+        log.info("breakdown: bucket breakdown:")
 
-        breakdown.toList.map { case ((b, t), v) => ((b, t), (v * t * bucketSize, v)) }.sortBy(_._1).foreach { case (k, (v,n)) => log.info(s"$k: $n vectors. $v skipped") }
+        breakdown.toList.map { case ((b, t), v) =>
+            val modded = if (b==t) 0 else t+1
+            ((b, t), (v * modded * bucketSize, v))
+        }.sortBy(_._1).foreach {
+            case (k, (v,n)) =>
+                log.info(s"breakdown: $k: $n vectors. $v skipped") }
         log.info("breakdown: ")
         log.info("breakdown: ")
 
@@ -119,9 +134,9 @@ class HoldensPSSDriver {
     def pairVectorsWithInvertedIndex(partitionedVectors: RDD[((Int, Int), VectorWithNorms)], invIndexes: RDD[((Int,Int), (InvertedIndex))], numBuckets: Int, needsSplitting: Map[(Int, Int), Long]): RDD[(Int, (Iterable[VectorWithNorms], Iterable[InvertedIndex]))] = {
         val neededVecs = invIndexes.filter(_._2.indices.nonEmpty).keys.sortBy(a => a).collect().toList
 
-        log.info("needed vecs:")
-        log.info(neededVecs.foldRight("")(_+","+_))
-        log.info(neededVecs.map(input => input._1*(input._1 + 1)/2 + 1 + input._2).foldRight("")(_+","+_))
+//        log.info("needed vecs:")
+//        log.info(neededVecs.foldRight("")(_+","+_))
+//        log.info(neededVecs.map(input => input._1*(input._1 + 1)/2 + 1 + input._2).foldRight("")(_+","+_))
 
         val par = partitioner.prepareTasksForParallelization(partitionedVectors, numBuckets, neededVecs, needsSplitting).persist()
         val changed = invIndexes.map{case(a,b) =>
@@ -129,13 +144,13 @@ class HoldensPSSDriver {
                 input._1*(input._1 + 1)/2 + 1 + input._2
             }
             (partitionHash(a),b)}
-        val partitionedTasks: RDD[(Int, (Iterable[VectorWithNorms], Iterable[(InvertedIndex)]))] = par.cogroup(changed, 30)
+        val partitionedTasks: RDD[(Int, (Iterable[VectorWithNorms], Iterable[(InvertedIndex)]))] = par.cogroup(changed, 30).repartition(24)
         partitionedTasks
     }
 
 
     def calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedTasks: RDD[(Int, (Iterable[VectorWithNorms], Iterable[InvertedIndex]))], threshold: Double, numBuckets: Int): RDD[(Long, Long, Double)] = {
-        log.info(s"num partitions: ${partitionedTasks.partitions.length}")
+//        log.info(s"num partitions: ${partitionedTasks.partitions.length}")
         val skipped: Accumulator[Long] = partitionedTasks.context.accumulator[Long](0)
         val reduced: Accumulator[Long] = partitionedTasks.context.accumulator[Long](0)
         val all: Accumulator[Long] = partitionedTasks.context.accumulator[Long](0)
@@ -213,7 +228,11 @@ class HoldensPSSDriver {
                 answer
         }.persist()
         similarities.count()
+        log.info("breakdown: *******************************************************")
+        log.info("breakdown: dynamic partitioning:")
+
         log.info(s"breakdown: ${all.value} pairs considered after duplicate pair removal")
+
         log.info("breakdown: "+skipped.value + " vector pairs skipped due to dynamic partitioning")
         dPar = all.value
         log.info("breakdown: "+reduced.value + " vector pairs returned after dynamic partitioning")

@@ -67,14 +67,6 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
         bucketSizes.foreach(_ shouldBe 5)
     }
 
-    "partitionByL1GraySort" should "partition values into buckets blah blha blah" in {
-        val bucketizedLargeVec = partitioner.partitionByL1GraySort(testRDD, 4, 20)
-        val buckets = bucketizedLargeVec.collect()
-        val a = 5
-
-        bucketizedLargeVec.keys.distinct().count() shouldEqual 4
-    }
-
 
     "determineBucketLeaders" should "determine the max l1 value for a bucket and match it to the corresponding key" in {
         val bucketized = partitioner.partitionByL1Sort(testRDD, 4, 20)
@@ -83,24 +75,26 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
         val expected = Array((0, 1.13), (1, 1.53), (2, 1.97), (3, 2.68))
         bucketLeaders should contain allElementsOf expected
     }
-
-    "tieVectorsToHighestBuckets" should "take every vector and tie it to the bucket which has the closest but < leader to its lInf" in {
-        val bucketizedVectors = partitioner.partitionByL1Sort(testRDD, 4, 20)
-        val leaders = partitioner.determineBucketLeaders(bucketizedVectors).collect().sortBy(a => a._1)
-        val threshold = 1.5
-        val tiedVectors = partitioner.tieVectorsToHighestBuckets(bucketizedVectors, leaders, threshold, sc)
-//        leaders.foreach{case (bucket, v) => println(s"leader for bucket $bucket: $v") }
-        val collectedVectors = tiedVectors.collect()
-        collectedVectors.foreach {
-            case ((bucketIndex, tiedLeader), dr) =>
-                threshold/dr.lInf should be > leaders(tiedLeader)._2
-                if(tiedLeader != bucketIndex-1 &&  bucketIndex!= tiedLeader){
-//                    println(s"comparing ${dr.associatedLeader} in bucket $bucketIndex with tmax ${threshold/dr.lInf}")
-                    threshold/dr.lInf should be < leaders(tiedLeader+1)._2
-                }
-
-        }
-    }
+//
+//    "tieVectorsToHighestBuckets" should "take every vector and tie it to the bucket which has the closest but < leader to its lInf" in {
+//        val bucketizedVectors = partitioner.partitionByL1Sort(testRDD, 4, 20)
+//        val leaders = partitioner.determineBucketLeaders(bucketizedVectors).collect().sortBy(a => a._1)
+//        val threshold = 1.5
+//        val tiedVectors = partitioner.tieVectorsToHighestBuckets(bucketizedVectors, leaders, threshold, sc)
+////        leaders.foreach{case (bucket, v) => println(s"leader for bucket $bucket: $v") }
+//        val collectedVectors = tiedVectors.collect()
+//        collectedVectors.foreach {
+//            case ((bucketIndex, tiedLeader), dr) =>
+//                val tm =threshold/dr.lInf
+//                 tm should be > leaders(tiedLeader)._2
+//                if(tiedLeader != bucketIndex-1 &&  bucketIndex!= tiedLeader){
+////                    println(s"comparing ${dr.associatedLeader} in bucket $bucketIndex with tmax ${threshold/dr.lInf}")
+//
+//                    (threshold/dr.lInf  < leaders(tiedLeader+1)._2 || tiedLeader == bucketIndex) shouldEqual true
+//                }
+//
+//        }
+//    }
 
 
     def truncateAt(n: Double, p: Int): Double = {
