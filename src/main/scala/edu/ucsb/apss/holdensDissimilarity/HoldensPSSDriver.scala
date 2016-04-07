@@ -97,10 +97,11 @@ class HoldensPSSDriver {
                   val modded = if (b==t) 0 else t+1
                 ((b, t), v * modded * bucketSize)
         }.map(a => a._2).sum
+        println(numBuckets)
         val keptPairs = breakdown.toList.map {
             case ((b, t), v) =>
                 val modded = if (b==t) 0 else t+1
-                ((b, t), bucketSize * (numBuckets - modded) * v) }.map(a => a._2).sum
+                ((b, t), bucketSize * (numBuckets - modded) * v)}.map(a => a._2).sum
         log.info("breakdown: *******************************************************")
 
         log.info(s"breakdown: static partitioning:")

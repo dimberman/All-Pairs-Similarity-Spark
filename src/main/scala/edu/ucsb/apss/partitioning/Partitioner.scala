@@ -71,7 +71,7 @@ trait Partitioner extends Serializable {
 
     def isCandidate(a: (Int, Int), b: (Int, Int)): Boolean = {
                 if(a._1 == a._2 || b._1 == b._2) true
-                else if ((a._2 > b._1 && a._1 > b._1) || (b._2 > a._1 && b._1 > a._1)) false
+                else if ((a._2 >= b._1 && a._1 >= b._1) || (b._2 >= a._1 && b._1 >= a._1)) false
                 else true
     }
 

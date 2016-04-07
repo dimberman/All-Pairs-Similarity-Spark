@@ -60,7 +60,7 @@ class HoldensPSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 //        for (i <- vec.values.indices) sum += vec.values(i) * vec.values(i)
 //
 
-        val answer = driver.run(sc, vecs, 20, 0.7)
+        val answer = driver.run(sc, vecs, 40, 0.9)
         val x = answer.collect()
 
 
