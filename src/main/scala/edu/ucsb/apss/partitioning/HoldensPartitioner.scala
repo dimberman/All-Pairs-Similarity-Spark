@@ -12,6 +12,9 @@ import java.util
   * Created by dimberman on 12/10/15.
   */
 
+
+
+
 object HoldensPartitioner extends Serializable with Partitioner {
     def l1Norm(v: SparseVector) = {
         v.values.map(math.abs).sum
@@ -37,23 +40,14 @@ object HoldensPartitioner extends Serializable with Partitioner {
          c.partitionBy(new RangePartitioner(numBuckets, c))
     }
 
+
     def partitionByL1Sort(r: RDD[SparseVector], numBuckets: Int, numVectors: Long): RDD[(Int, VectorWithNorms)] = {
         //        val a = r.collect()
-        val sorted = sortByl1Norm(r.zipWithIndex()).map(f => VectorWithNorms(lInfNorm(f._2._1), l1Norm(f._2._1),normalizer(f._2._1), f._2._1, f._2._2))
+        val sorted = sortByl1Norm(r.zipWithIndex()).map{ case(l1, (vec, ind)) => VectorWithNorms(lInfNorm(vec), l1Norm(vec),normalizer(vec), vec, ind)}
+
         sorted.zipWithIndex().map { case (vector, index) => ((index / (numVectors / numBuckets)).toInt, vector) }
     }
 
-
-    def partitionByL1GraySort(r: RDD[SparseVector], numBuckets: Int, numVectors: Long): RDD[(Int, VectorWithNorms)] = {
-        val sorted = partByl1Norm(r.zipWithIndex(), numBuckets).mapPartitionsWithIndex { case (idx, itr) =>
-            itr.map {
-                case(l1, (vec, ind)) =>
-                    (idx, VectorWithNorms(lInfNorm(vec), l1Norm(vec), normalizer(vec), vec, ind))
-            }
-
-        }
-        sorted
-    }
 
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): RDD[(Int, Double)] = {
         r.map{case(k,v) => (k, v.l1)}.reduceByKey(math.max)
@@ -92,10 +86,10 @@ object HoldensPartitioner extends Serializable with Partitioner {
             case (bucket, norms) =>
                 val tmax = threshold / norms
                 val taperedBuckets = broadcastedLeaders.value.take(bucket + 1).toList
-                val current = ltBinarySearch(taperedBuckets, tmax)
-                //TODO this is a hack
-                val res = math.min(current, taperedBuckets.length - 1)
-                taperedBuckets(res)._1
+                var res = 0
+                if(tmax<broadcastedLeaders.value.head._2) res = bucket
+                else while(res < bucket && tmax>broadcastedLeaders.value(res)._2) res+=1
+               res
         }
         val ret = persistedInputvecs.zip(buckets).map {
             case ((key, vec), matchedBucket) =>
@@ -111,15 +105,6 @@ object HoldensPartitioner extends Serializable with Partitioner {
 
     def filterPartitionsWithDissimilarity = (a: Int, b: Int, r: RDD[(Int, VectorWithNorms)]) => r.filter { case (name, vec) => name == b && vec.associatedLeader >= a }
 
-
-
-    def pullReleventValues(r: RDD[(Long, (Double, Double, Double, Double))]): RDD[(Long, BucketAlias)] = {
-        val b = r.map(a => (a._1, BucketAlias(a._2))).reduceByKey((a, b) => {
-            BucketAlias(math.max(a.maxLinf, b.maxLinf), math.min(a.minLinf, b.minLinf), math.max(a.maxL1, b.maxL1), math.min(a.minL1, b.minL1))
-        })
-        b
-
-    }
 
 
 }
