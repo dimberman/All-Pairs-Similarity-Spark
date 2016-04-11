@@ -9,6 +9,8 @@ import org.apache.log4j.Logger
 
 import org.apache.spark.{Accumulator, SparkContext, SparkConf}
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
   * Created by dimberman on 1/23/16.
   */
@@ -23,36 +25,36 @@ object Main {
         //        //TODO MEMORY_ONLY_SER
         val sc = new SparkContext(conf)
         val par = sc.textFile(args(0))
-        //        val idealNumExecutors = math.max(1,math.sqrt(sc.defaultParallelism * 4 ).toInt)
-        //        val idealNumExecutors = args(1).toInt
-
-        val skippedPairs: Accumulator[Int] = sc.accumulator(0)
         println(s"taking in from ${args(0)}")
         println(s"default par: ${sc.defaultParallelism}")
-        //        println(s"numBuckets = $idealNumExecutors")
+        val executionValues = List(.6, .8, .9)
         val vecs = par.map((new TweetToVectorConverter).convertTweetToVector)
+        val staticPartitioningValues = ArrayBuffer[Long]()
+        val dynamicPartitioningValues = ArrayBuffer[Long]()
+        val timings = ArrayBuffer[Long]()
+
+
         val driver = new HoldensPSSDriver
-//                for(i <- 8 to 9){
-//                    val threshold = .1 * i
-                    val threshold = .9
-                    val t1= System.currentTimeMillis()
-                    driver.run(sc, vecs, 30, threshold).count()
-                    val current = System.currentTimeMillis() - t1
-                    log.info(s"breakdown: apss with thresshold $threshold took ${current/1000} seconds")
-//                }
-//        for (i <- 0 to 8) {
-//            val numBuckets = 20 + 5 * i
-//            val t1 = System.currentTimeMillis()
-//            driver.run(sc, vecs, numBuckets, .9).count()
-//            val current = System.currentTimeMillis() - t1
-//            log.info(s"breakdown: apss with $numBuckets buckets took ${current / 1000} seconds")
-//        }
+        for (i <- executionValues) {
+            val threshold = i
+            val t1 = System.currentTimeMillis()
+            driver.run(sc, vecs, 30, threshold).count()
+            val current = System.currentTimeMillis() - t1
+            log.info(s"breakdown: apss with thresshold $threshold took ${current / 1000} seconds")
+            staticPartitioningValues.append(driver.sParReduction)
+            dynamicPartitioningValues.append(driver.dParReduction)
+            timings.append(current/1000)
+        }
 
+        val numPairs = driver.numVectors*driver.numVectors/2
+        log.info("breakdown:")
+        log.info("breakdown:")
+        log.info("breakdown: ************histogram******************")
+        log.info("breakdown:," + executionValues.reduce((a,b)=> a + "," + b))
+        log.info("breakdown:staticPairRemoval," + staticPartitioningValues.reduce((a,b) => a + "," + b))
+        log.info("breakdown:static%reduction," + staticPartitioningValues.map(a => a.toDouble/numPairs).reduce((a,b) => a + "," + b))
+        log.info("breakdown:dynamic," + dynamicPartitioningValues.reduce((a,b) => a + "," + b))
 
-        //        answer.saveAsTextFile(args(1))
-        //        for(arg <- args){
-        //            log.info(arg)
-        //        }
 
     }
 }
