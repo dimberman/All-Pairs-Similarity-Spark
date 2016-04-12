@@ -1,11 +1,11 @@
 package edu.ucsb.apss
 
+import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import org.apache.spark.mllib.linalg.SparseVector
 
 /**
   * Created by dimberman on 1/2/16.
   */
-case class VectorWithNorms(lInf: Double, l1: Double, normalizer:Double, vector: SparseVector, index:Long, var associatedLeader: Int = -1) extends Serializable
 
 object VectorWithNorms {
     def apply(b: (Double, Double,Double, SparseVector, Long)): VectorWithNorms = {
