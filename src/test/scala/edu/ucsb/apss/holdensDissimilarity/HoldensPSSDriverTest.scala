@@ -1,6 +1,6 @@
 package edu.ucsb.apss.holdensDissimilarity
 
-import edu.ucsb.apss.Context
+import edu.ucsb.apss.{Sim, Context}
 import edu.ucsb.apss.partitioning.HoldensPartitioner
 import edu.ucsb.apss.preprocessing.TweetToVectorConverter
 import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
@@ -51,7 +51,7 @@ class HoldensPSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val converter = new TweetToVectorConverter
         val vecs =   par.map(converter.convertTweetToVector)
         val answer = driver.run(sc, vecs, 41, 0.9)
-        val x = answer.collect()
+        answer.map{case(i,j,s) => Sim(i,j,s)}.top(10).foreach(println)
 
 
         //        val answer = driver.run(sc, vecs, 1, 0)

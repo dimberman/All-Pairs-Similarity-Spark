@@ -43,22 +43,18 @@ object HoldensPartitioner extends Serializable with Partitioner {
     }
 
 
-    def recordIndex(r: RDD[SparseVector]):RDD[VectorWithIndex] = {
-        r.zipWithIndex().map {case (vec, ind) => VectorWithIndex(vec,ind)}
+    def recordIndex(r: RDD[SparseVector]): RDD[VectorWithIndex] = {
+        r.zipWithIndex().map { case (vec, ind) => VectorWithIndex(vec, ind) }
     }
-
 
 
     def partitionByL1Sort(r: RDD[VectorWithIndex], numBuckets: Int, numVectors: Long): RDD[(Int, VectorWithIndex)] = {
-        r.map(v => (l1Norm(v.vec),v)).sortByKey().zipWithIndex().map { case ((l1, vec),sortIndex) => ((sortIndex.toFloat / numVectors.toFloat * numBuckets).toInt, vec) }
+        r.map(v => (l1Norm(v.vec), v)).sortByKey().zipWithIndex().map { case ((l1, vec), sortIndex) => ((sortIndex.toFloat / numVectors.toFloat * numBuckets).toInt, vec) }
     }
 
 
-
-
-
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): Array[(Int, Double)] = {
-        val answer = r.map { case (k, v) => (k, v.l1) }.reduceByKey((a,b) => math.max(a,b)).collect().sortBy(_._1)
+        val answer = r.map { case (k, v) => (k, v.l1) }.reduceByKey((a, b) => math.max(a, b)).collect().sortBy(_._1)
         answer.foreach(println)
         answer
     }
@@ -89,31 +85,42 @@ object HoldensPartitioner extends Serializable with Partitioner {
     }
 
 
-
-
     def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, VectorWithNorms)], leaders: Array[(Int, Double)], threshold: Double, sc: SparkContext): RDD[((Int, Int), VectorWithNorms)] = {
         //this step should reduce the amount of data that needs to be shuffled
         val idealVectors = determineIdealVectors(inputVectors)
         idealVectors.foreach(a => println(s"ideal vectors: $a"))
         val persistedInputvecs = inputVectors.persist()
         val lInfNormsOnly = persistedInputvecs.mapValues(_.lInf)
-        val buckets: RDD[Int] = lInfNormsOnly.map {
-            case (bucket, norms) =>
-                val tmax = threshold / norms
-                var res = 0
-                if (tmax < leaders.head._2) res = bucket  + 1
-                else if (bucket == 0)res = 1
-                else{
-                    while (res < bucket
-                      && (tmax > leaders(res)._2
-                      || PartitionUtil.dotProduct(idealVectors(bucket)._2, idealVectors(res)._2)<threshold
-                       )
-                      )
-                    {
-                        res += 1
+        val buckets: RDD[Int] = lInfNormsOnly.mapPartitions {
+            case (i) =>
+                val idealMap:MMap[(Int,Int), Double] = MMap()
+
+                def getIdeal(key:(Int,Int), vectorA:SparseVector, vectorB:SparseVector):Double = {
+                    if(idealMap.contains(key)) idealMap(key)
+                    else{
+                        val ans = PartitionUtil.dotProduct(vectorA, vectorB)
+                        idealMap+=(key -> ans)
+                        ans
                     }
+
                 }
-                res - 1
+                i.map {
+                    case (bucket, norms) =>
+                        val tmax = threshold / norms
+                        var res = 0
+                        if (tmax < leaders.head._2) res = bucket + 1
+                        else if (bucket == 0) res = 1
+                        else {
+                            while (res < bucket && tmax > leaders(res)._2) {
+                                res += 1
+                            }
+                            while (res < bucket && getIdeal((bucket,res),idealVectors(bucket)._2, idealVectors(res)._2) < threshold) {
+                                res += 1
+                            }
+                        }
+                        res - 1
+                }
+
         }
         val ret = persistedInputvecs.zip(buckets).map {
             case ((key, vec), matchedBucket) =>

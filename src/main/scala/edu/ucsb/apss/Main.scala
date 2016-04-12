@@ -14,6 +14,13 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * Created by dimberman on 1/23/16.
   */
+
+
+case class Sim(i:Long, j:Long, sim:Double) extends Ordered[Sim]{
+    override def compare(that: Sim): Int = this.sim compare that.sim
+    override def toString() = s"($i,$j): $sim"
+}
+
 object Main {
 
     val log = Logger.getLogger(this.getClass)
@@ -27,7 +34,7 @@ object Main {
         val par = sc.textFile(args(0))
         println(s"taking in from ${args(0)}")
         println(s"default par: ${sc.defaultParallelism}")
-        val executionValues = List(.6, .8, .9)
+        val executionValues = List(.6,.7,.9)
         val vecs = par.map((new TweetToVectorConverter).convertTweetToVector)
         val staticPartitioningValues = ArrayBuffer[Long]()
         val dynamicPartitioningValues = ArrayBuffer[Long]()
@@ -38,23 +45,31 @@ object Main {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            driver.run(sc, vecs, 30, threshold).count()
+            val answer = driver.run(sc, vecs, 30, threshold).persist()
+            answer.count()
             val current = System.currentTimeMillis() - t1
-            log.info(s"breakdown: apss with thresshold $threshold took ${current / 1000} seconds")
+            log.info(s"breakdown: apss with threshold $threshold took ${current / 1000} seconds")
+            val top = answer.map{case(i,j,sim) => Sim(i,j,sim)}.top(10)
+            println("breakdown: top 10 similarities")
+            top.foreach(s => println(s"breakdown: $s"))
             staticPartitioningValues.append(driver.sParReduction)
             dynamicPartitioningValues.append(driver.dParReduction)
             timings.append(current/1000)
+            answer.unpersist()
         }
 
         val numPairs = driver.numVectors*driver.numVectors/2
         log.info("breakdown:")
         log.info("breakdown:")
         log.info("breakdown: ************histogram******************")
-        log.info("breakdown:," + executionValues.reduce((a,b)=> a + "," + b))
-        log.info("breakdown:staticPairRemoval," + staticPartitioningValues.reduce((a,b) => a + "," + b))
-        log.info("breakdown:static%reduction," + staticPartitioningValues.map(a => a.toDouble/numPairs).reduce((a,b) => a + "," + b))
-        log.info("breakdown:dynamic," + dynamicPartitioningValues.reduce((a,b) => a + "," + b))
+        log.info("breakdown:," + executionValues.foldRight("")((a,b) => a + "," + b))
+        log.info("breakdown:staticPairRemoval," + staticPartitioningValues.foldRight("")((a,b) => a + "," + b))
+        log.info("breakdown:static%reduction," + staticPartitioningValues.map(a => a.toDouble/numPairs).foldRight("")((a,b) => a + "," + b))
+        log.info("breakdown:dynamic," + dynamicPartitioningValues.foldRight("")((a,b) => a + "," + b))
+        log.info("breakdown:timing," + timings.foldRight("")((a,b) => a + "," + b))
+
 
 
     }
+
 }

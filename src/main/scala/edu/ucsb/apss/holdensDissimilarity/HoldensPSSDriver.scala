@@ -50,11 +50,13 @@ class HoldensPSSDriver {
         //        sContext = sc
         val count = vectors.count
         numVectors = count
-        val normalizedVectors = vectors.map(normalizeVector)
+        val normalizedVectors = vectors.repartition(numBuckets).map(normalizeVector)
         val indexednVecs = recordIndex(normalizedVectors)
         val l1partitionedVectors = partitionByL1Sort(indexednVecs, numBuckets, count).mapValues(extractUsefulInfo)
+
         if (debugPSS) bucketSizes = l1partitionedVectors.countByKey().toList.sortBy(_._1).map(_._2.toInt)
-        val bucketLeaders = determineBucketLeaders(l1partitionedVectors).sortBy(_._1)
+
+        val bucketLeaders = determineBucketLeaders(l1partitionedVectors)
         partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
     }
 
@@ -263,7 +265,7 @@ class HoldensPSSDriver {
 
         log.info(s"breakdown: ${all.value} pairs considered after duplicate pair removal")
 
-        sParReduction = all.value
+        sParReduction = numVectors*numVectors/2 - all.value
         dParReduction = skipped.value
         log.info("breakdown: " + skipped.value + " vector pairs skipped due to dynamic partitioning")
         dPar = all.value
