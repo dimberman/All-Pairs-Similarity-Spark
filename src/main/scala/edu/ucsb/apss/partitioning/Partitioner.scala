@@ -1,6 +1,8 @@
 package edu.ucsb.apss.partitioning
 
 import edu.ucsb.apss.{VectorWithNorms, BucketMapping}
+import org.apache.hadoop.fs.Path
+import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 
@@ -41,6 +43,21 @@ trait Partitioner extends Serializable {
     def partitionHash(input:(Int,Int)) = {
         input._1*(input._1 + 1)/2 + 1 + input._2
     }
+
+
+    def writePartitionsToFile(r: RDD[((Int, Int), VectorWithNorms)]) = {
+       r.context.getConf
+    }
+
+    def writeFile(p:String, f:Iterator[VectorWithNorms], context:SparkContext) = {
+        val path = new Path(p)
+        val fs = path.getFileSystem(context.hadoopConfiguration)
+
+    }
+
+
+
+
 
     def prepareTasksForParallelization[T](r: RDD[((Int, Int), T)], numBuckets: Int, neededVecs: List[(Int,Int)], needsSplitting: Map[(Int, Int), Long] = Map()): RDD[(Int, T)] = {
         val numPartitions = (numBuckets * (numBuckets + 1)) / 2
