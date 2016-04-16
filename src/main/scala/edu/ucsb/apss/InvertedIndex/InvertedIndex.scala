@@ -6,9 +6,11 @@ import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.PutObjectRequest
 import edu.ucsb.apss.InvertedIndex.InvertedIndex.MaxMap
 import edu.ucsb.apss.VectorWithNorms
+import edu.ucsb.apss.VectorWithNorms
 import edu.ucsb.apss.holdensDissimilarity.HoldensPSSDriver
 import edu.ucsb.apss.partitioning.HoldensPartitioner
 import edu.ucsb.apss.preprocessing.TweetToVectorConverter
+import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import org.apache.log4j.Logger
 import org.apache.spark.{AccumulatorParam, Accumulator, SparkConf, SparkContext}
 import scala.collection.mutable.{Map => MMap}
@@ -31,6 +33,7 @@ object InvertedIndex {
     type IndexMap = MMap[Int, List[FeaturePair]]
     type MaxMap = MMap[Long, Double]
 
+    import HoldensPartitioner._
 
     type Bucket = (Int, Int)
 
@@ -75,7 +78,7 @@ object InvertedIndex {
         val s3client = new AmazonS3Client()
 
         val count = vectors.count()
-        val l1partitionedVectors = partitioner.partitionByL1Sort(vectors, numBuckets, count)
+        val l1partitionedVectors = partitionByL1Sort(recordIndex(vectors), numBuckets, count)
         val parts = l1partitionedVectors.countByKey()
         val partitionSizes = parts.toList.sortBy(_._1).map(_.toString())
         val partitionFile = writeFile("partitionSizes.csv", partitionSizes)

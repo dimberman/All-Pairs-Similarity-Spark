@@ -1,6 +1,7 @@
 package edu.ucsb.apss.partitioning
 
 import edu.ucsb.apss.Context
+import edu.ucsb.apss.preprocessing.TweetToVectorConverter
 import org.apache.spark.mllib.linalg.SparseVector
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
@@ -8,8 +9,9 @@ import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
   * Created by dimberman on 12/10/15.
   */
 class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter {
-    val partitioner =  HoldensPartitioner
+    import edu.ucsb.apss.util.PartitionUtil._
 
+    val partitioner = HoldensPartitioner
 
     val sc = Context.sc
     val n = 4
@@ -51,7 +53,7 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
 
 
     "mapVectorTol1Norm" should "take in a vector and create a keyvalue of that vector to it's l1norm" in {
-        val norms = vectors.map(partitioner.l1Norm)
+        val norms = vectors.map(v => l1Norm(v))
         val answer = List(0.8, 1.0, 1.4, 1.8)
         norms.zip(answer).foreach(n => n._1 should be(n._2 +- .000001))
     }
@@ -61,7 +63,7 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
     }
 
     "partitionByL1Norm" should "partition values into buckets blah blha blah" in {
-        val bucketizedLargeVec = partitioner.partitionByL1Sort(testRDD, 4, 20)
+        val bucketizedLargeVec = partitioner.partitionByL1Sort(partitioner.recordIndex(testRDD), 4, 20)
         bucketizedLargeVec.keys.distinct().count() shouldEqual 4
         val bucketSizes = bucketizedLargeVec.mapValues(a => 1).reduceByKey(_+_).values.collect()
         bucketSizes.foreach(_ shouldBe 5)
@@ -69,32 +71,38 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
 
 
     "determineBucketLeaders" should "determine the max l1 value for a bucket and match it to the corresponding key" in {
-        val bucketized = partitioner.partitionByL1Sort(testRDD, 4, 20)
+        val bucketized = partitioner.partitionByL1Sort(partitioner.recordIndex(testRDD), 4, 20)
         val collected = bucketized.collect()
-        val bucketLeaders = partitioner.determineBucketLeaders(bucketized).collect()
+        val bucketLeaders = partitioner.determineBucketLeaders(bucketized.mapValues(extractUsefulInfo))
         val expected = Array((0, 1.13), (1, 1.53), (2, 1.97), (3, 2.68))
         bucketLeaders should contain allElementsOf expected
     }
 //
-//    "tieVectorsToHighestBuckets" should "take every vector and tie it to the bucket which has the closest but < leader to its lInf" in {
-//        val bucketizedVectors = partitioner.partitionByL1Sort(testRDD, 4, 20)
-//        val leaders = partitioner.determineBucketLeaders(bucketizedVectors).collect().sortBy(a => a._1)
-//        val threshold = 1.5
-//        val tiedVectors = partitioner.tieVectorsToHighestBuckets(bucketizedVectors, leaders, threshold, sc)
-////        leaders.foreach{case (bucket, v) => println(s"leader for bucket $bucket: $v") }
-//        val collectedVectors = tiedVectors.collect()
-//        collectedVectors.foreach {
-//            case ((bucketIndex, tiedLeader), dr) =>
-//                val tm =threshold/dr.lInf
-//                 tm should be > leaders(tiedLeader)._2
-//                if(tiedLeader != bucketIndex-1 &&  bucketIndex!= tiedLeader){
-////                    println(s"comparing ${dr.associatedLeader} in bucket $bucketIndex with tmax ${threshold/dr.lInf}")
-//
-//                    (threshold/dr.lInf  < leaders(tiedLeader+1)._2 || tiedLeader == bucketIndex) shouldEqual true
-//                }
-//
-//        }
-//    }
+    "tieVectorsToHighestBuckets" should "take every vector and tie it to the bucket which has the closest but < leader to its lInf" in {
+        val rdd = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/10-tweets-bag.txt").map((new TweetToVectorConverter).convertTweetToVector)
+        val normalized = partitioner.normalizeVectors(rdd)
+        val bucketizedVectors = partitioner.partitionByL1Sort(partitioner.recordIndex(normalized), 4, normalized.count()).mapValues(extractUsefulInfo)
+        bucketizedVectors.collect().foreach(a => println(s"bucket: ${a._1}, l1: ${a._2.l1} vec:${a._2}"))
+        val leaders = partitioner.determineBucketLeaders(bucketizedVectors).sortBy(a => a._1)
+        leaders.foreach(a => println(s"leader ${a._1}: ${a._2}"))
+        val threshold = .9
+        val tiedVectors = partitioner.tieVectorsToHighestBuckets(bucketizedVectors, leaders, threshold, sc)
+//        leaders.foreach{case (bucket, v) => println(s"leader for bucket $bucket: $v") }
+        val collectedVectors = tiedVectors.collect()
+        collectedVectors.foreach {
+            case ((bucketIndex, tiedLeader), dr) =>
+               val tmax =threshold/dr.lInf
+                if(tmax<leaders(0)._2) {
+                    println(s"${threshold}/${dr.lInf} = $tmax, which is less than ${leaders(0)._2}, therefore we place in G_($bucketIndex,$tiedLeader)")
+                    bucketIndex  shouldEqual tiedLeader
+                }
+                else {
+                    println(s"$threshold/${dr.lInf} = $tmax, which is greater than than ${leaders(tiedLeader)._2}, therefore we place in G_($bucketIndex,$tiedLeader)")
+
+//                    tmax should be > leaders(tiedLeader)._2
+                }
+        }
+    }
 
 
     def truncateAt(n: Double, p: Int): Double = {
@@ -117,9 +125,6 @@ class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter 
     }
 
 
-    "ltBinarySearch" should "create a binary search from an array of integers" in {
-        partitioner.ltBinarySearch(List((1,.03),(2,.25),(3, .56),(4, .65),(5, .88)), .61) shouldBe 3
-    }
 
 
 
