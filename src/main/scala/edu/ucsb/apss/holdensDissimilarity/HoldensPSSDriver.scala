@@ -6,7 +6,6 @@ import edu.ucsb.apss.VectorWithNorms
 import edu.ucsb.apss.VectorWithNorms
 import edu.ucsb.apss.util.PartitionUtil
 
-import edu.ucsb.apss.compartmentalize._
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import scala.collection.mutable
 
@@ -33,37 +32,36 @@ import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 
 class BucketCompartmentalizer(cSize: Int) extends Serializable {
 
-    def aggregateBucket(input:RDD[((Int,Int), VectorWithNorms)]) = {
+    def aggregateBucket(input: RDD[((Int, Int), VectorWithNorms)]) = {
         input.aggregateByKey(ArrayBuffer[ArrayBuffer[VectorWithNorms]]())(addVector, mergeB)
     }
 
 
-
-    def addVector(a: ArrayBuffer[ArrayBuffer[VectorWithNorms]], vec: VectorWithNorms):ArrayBuffer[ArrayBuffer[VectorWithNorms]] = {
+    def addVector(a: ArrayBuffer[ArrayBuffer[VectorWithNorms]], vec: VectorWithNorms): ArrayBuffer[ArrayBuffer[VectorWithNorms]] = {
         var merged = false
         var i = 0
-        while(i < a.size && !merged){
-            if(a(i).size < cSize){
+        while (i < a.size && !merged) {
+            if (a(i).size < cSize) {
                 merged = true
                 a(i) += vec
             }
-            i+=1
+            i += 1
         }
-        if(!merged){
+        if (!merged) {
             val n = ArrayBuffer[VectorWithNorms](vec)
             a += n
         }
         a
     }
 
-    def mergeB(a: ArrayBuffer[ArrayBuffer[VectorWithNorms]], b: ArrayBuffer[ArrayBuffer[VectorWithNorms]]):ArrayBuffer[ArrayBuffer[VectorWithNorms]] = {
+    def mergeB(a: ArrayBuffer[ArrayBuffer[VectorWithNorms]], b: ArrayBuffer[ArrayBuffer[VectorWithNorms]]): ArrayBuffer[ArrayBuffer[VectorWithNorms]] = {
         a ++= b
         a
     }
 
 }
 
-class HoldensPSSDriver{
+class HoldensPSSDriver {
 
     import edu.ucsb.apss.util.PartitionUtil._
     import HoldensPartitioner._
@@ -77,7 +75,7 @@ class HoldensPSSDriver{
     var sParReduction = 0L
     var dParReduction = 0L
 
-    var appId:String = _
+    var appId: String = _
     var sPar = 0L
     var dPar = 0L
     var numVectors = 0L
@@ -118,11 +116,10 @@ class HoldensPSSDriver{
         //        val needsSplitting = bucketizedVectors.countByKey().filter(_._2 > 2500).map { case ((a, b), c) => ((a.toInt, b.toInt), c) }.toMap
 
         val invertedIndexes = generateInvertedIndexes(bucketizedVectors, Map(), numParts)
-        val a = calculateCosineSimilarityByPullingFromFile(invertedIndexes,threshold,numBuckets)
-//        val partitionedTasks = pairVectorsWithInvertedIndex(bucketizedVectors, invertedIndexes, numBuckets, Map())
-//
-//        val a: RDD[(Long, Long, Double)] = calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedTasks, threshold, numBuckets)
-
+        val a = calculateCosineSimilarityByPullingFromFile(invertedIndexes, threshold, numBuckets)
+        //        val partitionedTasks = pairVectorsWithInvertedIndex(bucketizedVectors, invertedIndexes, numBuckets, Map())
+        //
+        //        val a: RDD[(Long, Long, Double)] = calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedTasks, threshold, numBuckets)
 
 
         a
@@ -202,7 +199,6 @@ class HoldensPSSDriver{
     def pullKey(a: (Int, Int)) = (a._1 * (a._1 + 1)) / 2 + a._2
 
 
-
     def calculateCosineSimilarityByPullingFromFile(invertedIndexes: RDD[((Int, Int), InvertedIndex)], threshold: Double, numBuckets: Int): RDD[(Long, Long, Double)] = {
         //        log.info(s"num partitions: ${partitionedTasks.partitions.length}")
         val skipped: Accumulator[Long] = invertedIndexes.context.accumulator[Long](0)
@@ -212,7 +208,35 @@ class HoldensPSSDriver{
 
         invertedIndexes.count()
 
-        val neededVecs = invertedIndexes.filter(_._2.indices.nonEmpty).keys.sortBy(a => a).collect().toSet
+        val buckets = invertedIndexes.filter(_._2.indices.nonEmpty).keys.collect()
+        val neededVecs = buckets.sortBy(a => a).toSet
+
+
+        val manager = new PartitionManager
+
+        val pairs = buckets.map { case (b, t) => ((b, t), manager.assignByBucket(b, t, numBuckets)) }
+        val filteredPairs = pairs.map { case (k, v) => (k, v.filter(neededVecs.contains)) }
+        //
+                log.info("breakdown: pre-filtering")
+
+
+                pairs.foreach{case(k,v) => log.info(s"breakdown: $k: ${v.mkString(",")}")}
+
+                log.info("breakdown: post-filtering")
+
+                filteredPairs.foreach{case(k,v) => log.info(s"breakdown: $k: ${v.mkString(",")}")}
+
+
+
+        log.info(s"breakdown: needed vecs: ${neededVecs.toList.sorted.mkString(",")}")
+        log.info("breakdown: pre-filtering")
+
+
+        pairs.foreach { case (k, v) => log.info(s"breakdown: $k: ${v.size}") }
+
+        log.info("breakdown: post-filtering")
+
+        filteredPairs.foreach { case (k, v) => log.info(s"breakdown: $k: ${v.size}") }
 
         val sc = invertedIndexes.context
         val BVConf = sc.broadcast(new SerializableWritable(sc.hadoopConfiguration))
@@ -223,14 +247,15 @@ class HoldensPSSDriver{
         val similarities: RDD[Similarity] = invertedIndexes.flatMap {
             case ((key, inv)) =>
                 val manager = new PartitionManager
-//                val get = List().toIterator
-                val get = manager.assignByBucket(key._1, key._2, numBuckets).filter(neededVecs.contains)
-                println(s"breakdown: assignment ${get.mkString(",")}")
+                //                val get = List().toIterator
+                val get = manager.assignByBucket(key._1, key._2, numBuckets)
+                val filtered = get.filter(neededVecs.contains)
+//                println(s"breakdown: assignment ${get.mkString(",")}")
 
-                val answer = new BoundedPriorityQueue[Similarity](1000)
-                get.foreach {
+                val answer = new ArrayBuffer[Similarity]()
+                filtered.foreach {
                     case (key) =>
-                        val vectors = manager.readPartition(key, id, BVConf, org.apache.spark.TaskContext.get())
+                        val vectors = manager.readPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList
                         val indexMap = InvertedIndex.extractIndexMap(inv)
                         val score = new Array[Double](indexMap.size)
                         val (bucket, invertedIndex) = (inv.bucket, inv.indices)
@@ -248,10 +273,10 @@ class HoldensPSSDriver{
                                                 case (featurePair) => {
                                                     val (ind_i, weight_i) = (featurePair.id, featurePair.weight)
                                                     val l = indexMap(ind_i)
-                                                    //                                                if (!((score(l) + inv.maxMap(ind_i) * r_j) < threshold))
+                                                    //                                                    if (!((score(l) + inv.maxMap(ind_i) * r_j) < threshold))
                                                     score(l) += weight_i * weight_j
                                                 }
-                                                //                                                r_j -= weight_j
+                                                //                                                    r_j -= weight_j
                                             }
                                         }
                                         j += 1
@@ -293,6 +318,10 @@ class HoldensPSSDriver{
         log.info("breakdown: " + reduced.value + " vector pairs returned after dynamic partitioning")
         //        log.info("breakdown: index vecs " + indx.value)
         log.info("breakdown: " + (all.value - skipped.value - reduced.value) + " values unaccounted for")
+
+        log.info("breakdown:staticPairRemoval," + sParReduction)
+        log.info("breakdown:static%reduction," + sParReduction.toDouble/(numVectors*numVectors/2))
+        manager.cleanup(sc.applicationId, BVConf)
         similarities.map(s => (s.i, s.j, s.similarity))
     }
 

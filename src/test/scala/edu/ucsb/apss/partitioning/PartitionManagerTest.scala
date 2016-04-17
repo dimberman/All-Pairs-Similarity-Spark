@@ -41,19 +41,51 @@ class PartitionManagerTest extends FlatSpec with Matchers with BeforeAndAfter {
 
         Files.exists(Paths.get(path(sc.applicationId, k))) shouldBe true
 
-        val answer = manager.readFile[VectorWithNorms](new Path(path(sc.applicationId, k)),BVConf, org.apache.spark.TaskContext.get())
+        val answer = manager.readFile(new Path(path(sc.applicationId, k)),BVConf, org.apache.spark.TaskContext.get())
         answer.next() shouldEqual bucketizedVector.head
         val f = new File(s"/tmp/${sc.applicationId}/"+PartitionHasher.partitionHash(k))
         f.delete()
     }
 
 
+    it should "only write to a file once" in {
+        manager.writeFile(k, bucketizedVector, sc.applicationId, sc.broadcast(new SerializableWritable(sc.hadoopConfiguration)))
+
+        assert(Files.exists(Paths.get(s"/tmp/${sc.applicationId}/"+PartitionHasher.partitionHash(k))))
+
+
+
+
+
+        val BVConf = sc.broadcast(new SerializableWritable(sc.hadoopConfiguration))
+
+        Files.exists(Paths.get(path(sc.applicationId, k))) shouldBe true
+
+        val answer1 = manager.readFile(new Path(path(sc.applicationId, k)),BVConf, org.apache.spark.TaskContext.get()).toList
+        val numlines = answer1.size
+        answer1.head shouldEqual bucketizedVector.head
+
+        manager.writeFile(k, bucketizedVector, sc.applicationId, sc.broadcast(new SerializableWritable(sc.hadoopConfiguration)))
+
+        val answer2 = manager.readFile(new Path(path(sc.applicationId, k)),BVConf, org.apache.spark.TaskContext.get()).toList
+        answer2.foreach(println)
+        answer2.size shouldEqual numlines
+        answer2.head shouldEqual   bucketizedVector.head
+        manager.cleanup(sc.applicationId, BVConf)
+    }
+
+
+
     it should "handle RDDs" in {
         val rdd = sc.parallelize(Seq((k,bucketizedVector.head)))
         manager.writePartitionsToFile(rdd)
+        val BVConf = sc.broadcast(new SerializableWritable(sc.hadoopConfiguration))
+
         rdd.count()
         assert(Files.exists(Paths.get(path(sc.applicationId, k))))
         val f = new File(s"/tmp/${sc.applicationId}/"+PartitionHasher.partitionHash(k))
+        manager.readPartition(k,sc.applicationId, BVConf, org.apache.spark.TaskContext.get()).foreach(println)
+        f
         f.delete()
     }
 

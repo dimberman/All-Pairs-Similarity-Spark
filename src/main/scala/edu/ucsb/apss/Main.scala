@@ -34,7 +34,7 @@ object Main {
         val par = sc.textFile(args(0))
         println(s"taking in from ${args(0)}")
         println(s"default par: ${sc.defaultParallelism}")
-        val executionValues = List(.9)
+        val executionValues = List(0.0)
         val vecs = par.map((new TweetToVectorConverter).convertTweetToVector)
         val staticPartitioningValues = ArrayBuffer[Long]()
         val dynamicPartitioningValues = ArrayBuffer[Long]()
@@ -45,7 +45,7 @@ object Main {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            val answer = driver.run(sc, vecs, 30, threshold).persist()
+            val answer = driver.run(sc, vecs, 40, threshold).persist()
             answer.count()
             val current = System.currentTimeMillis() - t1
             log.info(s"breakdown: apss with threshold $threshold took ${current / 1000} seconds")

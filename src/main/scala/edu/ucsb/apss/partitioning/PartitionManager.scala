@@ -12,31 +12,8 @@ import org.apache.spark.broadcast.Broadcast
 /**
   * Created by dimberman on 4/14/16.
   */
-class PartitionManager extends Serializable {
+class PartitionManager(local:Boolean = false) extends Serializable {
 
-    def assignFixed(startingIndex: Int, neededVecs: List[(Int, Int)], sums: Array[Int]): List[(Int, Int)] = {
-        val numberOfNeeded = neededVecs.length
-        numberOfNeeded % 2 match {
-            case 1 =>
-                val proposedRange = List.range(startingIndex + 1, (startingIndex + 1) + (numberOfNeeded - 1) / 2) :+ startingIndex
-                val modded = proposedRange.map(a => a % numberOfNeeded).toSet
-                val pairs = neededVecs.zipWithIndex.filter(a => modded.contains(a._2)).map(_._1)
-                pairs
-            case 0 =>
-                if (startingIndex < numberOfNeeded / 2) {
-                    val e = (List.range(startingIndex + 1, (startingIndex + 1) + numberOfNeeded / 2).map(_ % numberOfNeeded) :+ startingIndex).toSet
-                    val pairs = neededVecs.zipWithIndex.filter(a => e.contains(a._2)).map(_._1)
-                    pairs
-                }
-                else {
-                    val x = (startingIndex + 1) + numberOfNeeded / 2 - 1
-                    val e = (List.range(startingIndex + 1, x).map(_ % numberOfNeeded) :+ startingIndex).toSet
-                    val pairs = neededVecs.zipWithIndex.filter(a => e.contains(a._2)).map(_._1)
-                    pairs
-                }
-        }
-
-    }
 
     def readPartition(key: (Int, Int), id: String, broadcastedConf: Broadcast[SerializableWritable[Configuration]], taskContext: TaskContext): Iterator[VectorWithNorms] = {
         val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
@@ -44,7 +21,7 @@ class PartitionManager extends Serializable {
         //         List[VectorWithNorms]().toIterator
     }
 
-    def readFile[T](path: Path, broadcastedConf: Broadcast[SerializableWritable[Configuration]], context: TaskContext) = {
+    def readFile(path: Path, broadcastedConf: Broadcast[SerializableWritable[Configuration]], context: TaskContext) = {
         val env = SparkEnv.get
         val fs = path.getFileSystem(broadcastedConf.value.value)
         val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
@@ -53,7 +30,7 @@ class PartitionManager extends Serializable {
 
         val deserializeStream = serializer.deserializeStream(fileInputStream)
         //        context.addTaskCompletionListener(context => deserializeStream.close())
-        deserializeStream.asIterator.asInstanceOf[Iterator[T]]
+        deserializeStream.asIterator.asInstanceOf[Iterator[VectorWithNorms]]
     }
 
     def getSums(i: Int): Array[Int] = {
@@ -72,23 +49,22 @@ class PartitionManager extends Serializable {
         val BVConf = r.context.broadcast(new SerializableWritable(r.context.hadoopConfiguration))
         x.foreach { case (k, v) =>
             writeFile(k, v, id,BVConf)
-        1
         }
         val y = x.collect
 
     }
 
-    def writePartitionListsToFile(r: RDD[((Int, Int), List[List[VectorWithNorms]])]) = {
-        val x = r.groupByKey()
-        val id = r.context.applicationId
-        val BVConf = r.context.broadcast(new SerializableWritable(r.context.hadoopConfiguration))
-        x.foreach { case (k, v) =>
-            writeFile(k, v, id,BVConf)
-            1
-        }
-        val y = x.collect
-
-    }
+//    def writePartitionListsToFile(r: RDD[((Int, Int), List[List[VectorWithNorms]])]) = {
+//        val x = r.groupByKey()
+//        val id = r.context.applicationId
+//        val BVConf = r.context.broadcast(new SerializableWritable(r.context.hadoopConfiguration))
+//        x.foreach { case (k, v) =>
+//            writeFile(k, v, id,BVConf)
+//            1
+//        }
+//        val y = x.collect
+//
+//    }
 
 
 
@@ -99,7 +75,8 @@ class PartitionManager extends Serializable {
                 val modded = proposedBuckets.map(a => a % numBuckets)
                 modded.flatMap(b =>{
                     val candidates = List.range(0,b+1).map(x => (b,x))
-                    val answer =   candidates.filter(isCandidate((bucket,tiedLeader),_))
+                    println(s"breakdown: Candidates: ${candidates.mkString(",")}")
+                    val answer =   candidates.filter(a => isCandidate((bucket,tiedLeader),a))
                     answer
                 }
 
@@ -124,7 +101,16 @@ class PartitionManager extends Serializable {
 
     }
 
-    def writeFile[T](key: (Int, Int), f: Iterable[T], id:String, BVConf:Broadcast[SerializableWritable[Configuration]]) = {
+
+    def cleanup(id:String, BVConf:Broadcast[SerializableWritable[Configuration]]) = {
+        val file = s"/tmp/$id/"
+        val path = new Path(file)
+        val fs = path.getFileSystem(BVConf.value.value)
+        fs.delete(path,true)
+
+    }
+
+    def writeFile(key: (Int, Int), f: Iterable[VectorWithNorms], id:String, BVConf:Broadcast[SerializableWritable[Configuration]]) = {
         val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
         val path = new Path(partitionFile)
         val fs = path.getFileSystem(BVConf.value.value)
@@ -132,11 +118,12 @@ class PartitionManager extends Serializable {
         val env = SparkEnv.get
         val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
         if(fs.exists(path)){
-            val output = fs.append(path, bufferSize)
-//            println(s"writing vector to file $id: " + f)
-            val serialized = env.serializer.newInstance().serializeStream(output)
-            serialized.writeAll(f.toIterator)
-            output.close()
+//            val output = fs.append(path, bufferSize)
+//
+////            println(s"writing vector to file $id: " + f)
+//            val serialized = env.serializer.newInstance().serializeStream(output)
+//            serialized.writeAll(f.toIterator)
+//            output.close()
         }
         else{
             val output = fs.create(path, false, bufferSize)
@@ -150,9 +137,9 @@ class PartitionManager extends Serializable {
 
 
     def isCandidate(a: (Int, Int), b: (Int, Int)): Boolean = {
-        if (a._1 == a._2 || b._1 == b._2) true
-        else if ((a._2 >= b._1 && a._1 >= b._1) || (b._2 >= a._1 && b._1 >= a._1)) false
-        else true
+//        if (a._1 == a._2 || b._1 == b._2)  true
+//        else  !((a._2 >= b._1) || (b._2 >= a._1))
+        true
     }
 
 

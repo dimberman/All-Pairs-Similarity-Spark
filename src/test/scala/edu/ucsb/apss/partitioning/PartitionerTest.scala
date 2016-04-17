@@ -19,69 +19,69 @@ class PartitionerTest extends FlatSpec with Matchers with BeforeAndAfter{
     }
 
 
-
-    "assignPartition" should "split fully with only two buckets" in {
-        val sums = partitioner.getSums(2)
-        val neededVecs = List((0,0),(1,0))
-        partitioner.assignFixed(0, neededVecs, sums) shouldEqual List((0, 0),(1,0))
-        partitioner.assignFixed(1, neededVecs, sums) shouldEqual List((1,0))
-
-    }
-
-    "assignPartition" should "split evenly with three buckets" in {
-        val sums = partitioner.getSums(3)
-        val neededVecs = List((0,0),(1,0), (2,0))
-        partitioner.assignFixed(0, neededVecs, sums) shouldEqual List((0, 0),(1,0))
-        partitioner.assignFixed(1, neededVecs, sums) shouldEqual List((1, 0),(2,0))
-        partitioner.assignFixed(2, neededVecs, sums) shouldEqual List((0, 0),(2,0))
-
-
-    }
-
-    "assignPartition" should "evenly distribute partition assignments" in {
-        val sums = partitioner.getSums(5)
-        val neededVecs = List((0,0),(1,0),(2,0),(3,0),(4,0))
-        partitioner.assignFixed(0, neededVecs, sums) shouldEqual List((0, 0),(1,0), (2,0))
-    }
-
-    it should "wrap around when it reaches the end" in {
-        val sums = partitioner.getSums(5)
-        val neededVecs = List((0,0),(1,0),(2,0),(3,0),(4,0))
-        val fixed = partitioner.assignFixed(3, neededVecs, sums)
-        fixed shouldEqual List((0, 0),(3,0), (4,0))
-    }
-
-
-    it should "uniquely compare each sub-bucket" in {
-        val sums = partitioner.getSums(5)
-        val neededVecs = List((0,0),(1,0),(2,0),(3,0),(4,0))
-        val assignments = List(0,1,2,3,4) map {
-            i =>
-                partitioner.assignFixed(i, neededVecs, sums).map(List(_,(i,0)).sorted)
-        }
-        val allAssn = assignments.flatten
-        val allVals = allAssn.map(a => (a.head, a.tail.head)).sorted
-        allAssn.length shouldEqual allAssn.toSet.size
-    }
-
-
-    it should "work with strange partitions" in {
-        val sums = partitioner.getSums(5)
-        val neededVecs = List((0,0),(1,0),(2,1),(3,2),(4,3))
-        val assignments = neededVecs map {
-            i =>
-                (i,partitioner.assignByBucket(i._1, i._2, neededVecs.length))
-        }
+//
+//    "assignPartition" should "split fully with only two buckets" in {
+//        val sums = partitioner.getSums(2)
+//        val neededVecs = List((0,0),(1,0))
+//        partitioner.assignFixed(0, neededVecs, sums) shouldEqual List((0, 0),(1,0))
+//        partitioner.assignFixed(1, neededVecs, sums) shouldEqual List((1,0))
+//
+//    }
+//
+//    "assignPartition" should "split evenly with three buckets" in {
+//        val sums = partitioner.getSums(3)
+//        val neededVecs = List((0,0),(1,0), (2,0))
+//        partitioner.assignFixed(0, neededVecs, sums) shouldEqual List((0, 0),(1,0))
+//        partitioner.assignFixed(1, neededVecs, sums) shouldEqual List((1, 0),(2,0))
+//        partitioner.assignFixed(2, neededVecs, sums) shouldEqual List((0, 0),(2,0))
+//
+//
+//    }
+//
+//    "assignPartition" should "evenly distribute partition assignments" in {
+//        val sums = partitioner.getSums(5)
+//        val neededVecs = List((0,0),(1,0),(2,0),(3,0),(4,0))
+//        partitioner.assignFixed(0, neededVecs, sums) shouldEqual List((0, 0),(1,0), (2,0))
+//    }
+//
+//    it should "wrap around when it reaches the end" in {
+//        val sums = partitioner.getSums(5)
+//        val neededVecs = List((0,0),(1,0),(2,0),(3,0),(4,0))
+//        val fixed = partitioner.assignFixed(3, neededVecs, sums)
+//        fixed shouldEqual List((0, 0),(3,0), (4,0))
+//    }
+//
+//
+//    it should "uniquely compare each sub-bucket" in {
+//        val sums = partitioner.getSums(5)
+//        val neededVecs = List((0,0),(1,0),(2,0),(3,0),(4,0))
+//        val assignments = List(0,1,2,3,4) map {
+//            i =>
+//                partitioner.assignFixed(i, neededVecs, sums).map(List(_,(i,0)).sorted)
+//        }
 //        val allAssn = assignments.flatten
 //        val allVals = allAssn.map(a => (a.head, a.tail.head)).sorted
-        assignments.foreach{case(k,v) => println(s"$k: ${v.mkString(",")}")}
-        println("filtered")
-//        assignments.map(a => a.filter(b => partitioner.isCandidate(b.head, b.tail.head))).foreach(println)
-
-
 //        allAssn.length shouldEqual allAssn.toSet.size
-    }
-
+//    }
+//
+//
+//    it should "work with strange partitions" in {
+//        val sums = partitioner.getSums(5)
+//        val neededVecs = List((0,0),(1,0),(2,1),(3,2),(4,3))
+//        val assignments = neededVecs map {
+//            i =>
+//                (i,partitioner.assignByBucket(i._1, i._2, neededVecs.length))
+//        }
+////        val allAssn = assignments.flatten
+////        val allVals = allAssn.map(a => (a.head, a.tail.head)).sorted
+//        assignments.foreach{case(k,v) => println(s"$k: ${v.mkString(",")}")}
+//        println("filtered")
+////        assignments.map(a => a.filter(b => partitioner.isCandidate(b.head, b.tail.head))).foreach(println)
+//
+//
+////        allAssn.length shouldEqual allAssn.toSet.size
+//    }
+//
 
 
 

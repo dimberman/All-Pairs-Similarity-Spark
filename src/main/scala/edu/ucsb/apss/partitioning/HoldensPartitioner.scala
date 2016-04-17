@@ -88,7 +88,7 @@ object HoldensPartitioner extends Serializable with Partitioner {
     def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, VectorWithNorms)], leaders: Array[(Int, Double)], threshold: Double, sc: SparkContext): RDD[((Int, Int), VectorWithNorms)] = {
         //this step should reduce the amount of data that needs to be shuffled
         val idealVectors = determineIdealVectors(inputVectors)
-        idealVectors.foreach(a => println(s"ideal vectors: $a"))
+//        idealVectors.foreach(a => println(s"ideal vectors: $a"))
         val persistedInputvecs = inputVectors.persist()
         val lInfNormsOnly = persistedInputvecs.mapValues(_.lInf)
         val buckets: RDD[Int] = lInfNormsOnly.mapPartitions {
