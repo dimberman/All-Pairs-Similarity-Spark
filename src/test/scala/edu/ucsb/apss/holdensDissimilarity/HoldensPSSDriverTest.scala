@@ -50,7 +50,7 @@ class HoldensPSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
         val converter = new TweetToVectorConverter
         val vecs =   par.map(converter.convertTweetToVector)
-        val answer = driver.run(sc, vecs, 40, 0.9)
+        val answer = driver.run(sc, vecs, 41, 0.9)
         answer.map{case(i,j,s) => Sim(i,j,s)}.top(10).foreach(println)
 
 

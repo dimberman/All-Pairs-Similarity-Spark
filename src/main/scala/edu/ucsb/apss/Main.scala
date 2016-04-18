@@ -45,7 +45,7 @@ object Main {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            val answer = driver.run(sc, vecs, 40, threshold).persist()
+            val answer = driver.run(sc, vecs, 41, threshold).persist()
             answer.count()
             val current = System.currentTimeMillis() - t1
             log.info(s"breakdown: apss with threshold $threshold took ${current / 1000} seconds")

@@ -214,8 +214,7 @@ class HoldensPSSDriver {
 
         val manager = new PartitionManager
 
-        val pairs = buckets.map { case (b, t) => ((b, t), manager.assignByBucket(b, t, numBuckets)) }
-        val filteredPairs = pairs.map { case (k, v) => (k, v.filter(neededVecs.contains)) }
+        val pairs = buckets.map { case (b, t) => ((b, t), manager.assignByBucket(b, t, numBuckets,neededVecs)) }
         //
 //        log.info("breakdown: pre-filtering")
 //

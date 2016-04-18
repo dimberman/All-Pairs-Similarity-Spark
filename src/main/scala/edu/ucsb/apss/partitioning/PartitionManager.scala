@@ -73,15 +73,16 @@ class PartitionManager(local:Boolean = false) extends Serializable {
             case 1 =>
                 val start = neededVecs.indexOf((bucket,tiedLeader))
 //                val proposedBuckets = List.range(bucket + 1, (bucket + 1) + (numBuckets - 1) / 2) :+ bucket
-                val proposedBuckets = List.range(bucket + 1, (bucket + 1) + (numBuckets - 1) / 2) :+ bucket
+                val proposedBuckets = List.range(start + 1, (start + 1) + (start - 1) / 2) :+ start
 
-                val modded = proposedBuckets.map(a => a % numBuckets)
-                modded.flatMap(b =>{
-                    val candidates = List.range(0,b+1).map(x => (b,x))
-                    println(s"breakdown: Candidates: ${candidates.mkString(",")}")
-                    val answer =   candidates.filter(a => isCandidate((bucket,tiedLeader),a))
-                    answer
-                }
+                val modded = proposedBuckets.map(a => a % neededVecs.size)
+                modded.map(neededVecs(_)).filter(isCandidate((bucket,tiedLeader),_)
+//                modded.flatMap(b =>{
+//                    val candidates = List.range(0,b+1).map(x => (b,x))
+//                    println(s"breakdown: Candidates: ${candidates.mkString(",")}")
+//                    val answer =   candidates.filter(a => isCandidate((bucket,tiedLeader),a))
+//                    answer
+//                }
 
                 )
             case 0 =>
