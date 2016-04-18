@@ -34,7 +34,7 @@ object Main {
         val par = sc.textFile(args(0))
         println(s"taking in from ${args(0)}")
         println(s"default par: ${sc.defaultParallelism}")
-        val executionValues = List(0.0)
+        val executionValues = List(0.6,0.9)
         val vecs = par.map((new TweetToVectorConverter).convertTweetToVector)
         val staticPartitioningValues = ArrayBuffer[Long]()
         val dynamicPartitioningValues = ArrayBuffer[Long]()

@@ -55,7 +55,7 @@ object HoldensPartitioner extends Serializable with Partitioner {
 
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): Array[(Int, Double)] = {
         val answer = r.map { case (k, v) => (k, v.l1) }.reduceByKey((a, b) => math.max(a, b)).collect().sortBy(_._1)
-        answer.foreach(println)
+//        answer.foreach(println)
         answer
     }
 

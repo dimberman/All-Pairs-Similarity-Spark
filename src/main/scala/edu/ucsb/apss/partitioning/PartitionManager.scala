@@ -68,10 +68,13 @@ class PartitionManager(local:Boolean = false) extends Serializable {
 
 
 
-    def assignByBucket(bucket: Int, tiedLeader:Int, numBuckets:Int): List[(Int, Int)] = {
+    def assignByBucket(bucket: Int, tiedLeader:Int, numBuckets:Int,neededVecs:Array[(Int,Int)]): List[(Int, Int)] = {
         numBuckets % 2 match {
             case 1 =>
+                val start = neededVecs.indexOf((bucket,tiedLeader))
+//                val proposedBuckets = List.range(bucket + 1, (bucket + 1) + (numBuckets - 1) / 2) :+ bucket
                 val proposedBuckets = List.range(bucket + 1, (bucket + 1) + (numBuckets - 1) / 2) :+ bucket
+
                 val modded = proposedBuckets.map(a => a % numBuckets)
                 modded.flatMap(b =>{
                     val candidates = List.range(0,b+1).map(x => (b,x))
@@ -85,7 +88,7 @@ class PartitionManager(local:Boolean = false) extends Serializable {
                 if (bucket < numBuckets / 2) {
                     val e = List.range(bucket + 1, (bucket + 1) + numBuckets / 2).map(_ % numBuckets) :+ bucket
                     e.flatMap(b =>{
-                        val answer = List.range(0,b).map(x => (b,x)).filter(isCandidate((bucket,tiedLeader),_))
+                        val answer = List.range(0,b+1).map(x => (b,x)).filter(isCandidate((bucket,tiedLeader),_))
                         answer
                     })
                 }
@@ -93,7 +96,7 @@ class PartitionManager(local:Boolean = false) extends Serializable {
                     val x = (bucket + 1) + numBuckets / 2 - 1
                     val e = List.range(bucket + 1, x).map(_ % numBuckets) :+ bucket
                     e.flatMap(b =>{
-                        val answer = List.range(0,b).map(x => (b,x)).filter(isCandidate((bucket,tiedLeader),_))
+                        val answer = List.range(0,b+1).map(x => (b,x)).filter(isCandidate((bucket,tiedLeader),_))
                         answer
                     })
                 }
@@ -137,9 +140,9 @@ class PartitionManager(local:Boolean = false) extends Serializable {
 
 
     def isCandidate(a: (Int, Int), b: (Int, Int)): Boolean = {
-//        if (a._1 == a._2 || b._1 == b._2)  true
-//        else  !((a._2 >= b._1) || (b._2 >= a._1))
-        true
+        if (a._1 == a._2 || b._1 == b._2)  true
+        else  !((a._2 >= b._1) || (b._2 >= a._1))
+//        true
     }
 
 

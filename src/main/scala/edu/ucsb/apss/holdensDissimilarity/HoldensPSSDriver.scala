@@ -66,7 +66,7 @@ class HoldensPSSDriver {
     import edu.ucsb.apss.util.PartitionUtil._
     import HoldensPartitioner._
 
-    var debugPSS = false
+    var debugPSS = true
     val partitioner = HoldensPartitioner
     //    @transient lazy val log = Logger.getLogger(getClass.getName)
     val log = Logger.getLogger(getClass.getName)
@@ -209,7 +209,7 @@ class HoldensPSSDriver {
         invertedIndexes.count()
 
         val buckets = invertedIndexes.filter(_._2.indices.nonEmpty).keys.collect()
-        val neededVecs = buckets.sortBy(a => a).toSet
+        val neededVecs = buckets.sortBy(a => a)
 
 
         val manager = new PartitionManager
@@ -217,26 +217,26 @@ class HoldensPSSDriver {
         val pairs = buckets.map { case (b, t) => ((b, t), manager.assignByBucket(b, t, numBuckets)) }
         val filteredPairs = pairs.map { case (k, v) => (k, v.filter(neededVecs.contains)) }
         //
-                log.info("breakdown: pre-filtering")
-
-
-                pairs.foreach{case(k,v) => log.info(s"breakdown: $k: ${v.mkString(",")}")}
-
-                log.info("breakdown: post-filtering")
-
-                filteredPairs.foreach{case(k,v) => log.info(s"breakdown: $k: ${v.mkString(",")}")}
-
-
-
-        log.info(s"breakdown: needed vecs: ${neededVecs.toList.sorted.mkString(",")}")
-        log.info("breakdown: pre-filtering")
-
-
-        pairs.foreach { case (k, v) => log.info(s"breakdown: $k: ${v.size}") }
-
-        log.info("breakdown: post-filtering")
-
-        filteredPairs.foreach { case (k, v) => log.info(s"breakdown: $k: ${v.size}") }
+//        log.info("breakdown: pre-filtering")
+//
+//
+//        pairs.foreach { case (k, v) => log.info(s"breakdown: $k: ${v.mkString(",")}") }
+//
+//        log.info("breakdown: post-filtering")
+//
+//        filteredPairs.foreach { case (k, v) => log.info(s"breakdown: $k: ${v.mkString(",")}") }
+//
+//
+//
+//        log.info(s"breakdown: needed vecs: ${neededVecs.toList.sorted.mkString(",")}")
+//        log.info("breakdown: pre-filtering")
+//
+//
+//        pairs.foreach { case (k, v) => log.info(s"breakdown: $k: ${v.size}") }
+//
+//        log.info("breakdown: post-filtering")
+//
+//        filteredPairs.foreach { case (k, v) => log.info(s"breakdown: $k: ${v.size}") }
 
         val sc = invertedIndexes.context
         val BVConf = sc.broadcast(new SerializableWritable(sc.hadoopConfiguration))
@@ -248,11 +248,13 @@ class HoldensPSSDriver {
             case ((key, inv)) =>
                 val manager = new PartitionManager
                 //                val get = List().toIterator
-                val get = manager.assignByBucket(key._1, key._2, numBuckets)
+                val get = manager.assignByBucket(key._1, key._2, numBuckets, neededVecs)
                 val filtered = get.filter(neededVecs.contains)
 //                println(s"breakdown: assignment ${get.mkString(",")}")
 
-                val answer = new ArrayBuffer[Similarity]()
+//                val answer = new ArrayBuffer[Similarity]()
+                val answer = new BoundedPriorityQueue[Similarity](1000)
+
                 filtered.foreach {
                     case (key) =>
                         val vectors = manager.readPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList
