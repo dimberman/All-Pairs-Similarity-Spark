@@ -1,5 +1,6 @@
 package edu.ucsb.apss.util
 
+import edu.ucsb.apss.InvertedIndex.SimpleInvertedIndex
 import edu.ucsb.apss.partitioning.PartitionHasher
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import org.apache.hadoop.conf.Configuration
@@ -14,13 +15,14 @@ import org.apache.spark.{SerializableWritable, SparkEnv, TaskContext}
 class ExternalFileManager(local:Boolean = false) extends Serializable {
 
 
-    def readPartition(key: (Int, Int), id: String, broadcastedConf: Broadcast[SerializableWritable[Configuration]], taskContext: TaskContext): Iterator[VectorWithNorms] = {
+
+    def readVecPartition(key: (Int, Int), id: String, broadcastedConf: Broadcast[SerializableWritable[Configuration]], taskContext: TaskContext): Iterator[VectorWithNorms] = {
         val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
-        readFile(new Path(partitionFile), broadcastedConf, taskContext)
+        readVecFile(new Path(partitionFile), broadcastedConf, taskContext)
         //         List[VectorWithNorms]().toIterator
     }
 
-    def readFile(path: Path, broadcastedConf: Broadcast[SerializableWritable[Configuration]], context: TaskContext) = {
+    def readVecFile(path: Path, broadcastedConf: Broadcast[SerializableWritable[Configuration]], context: TaskContext) = {
         val env = SparkEnv.get
         val fs = path.getFileSystem(broadcastedConf.value.value)
         val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
@@ -30,6 +32,29 @@ class ExternalFileManager(local:Boolean = false) extends Serializable {
         val deserializeStream = serializer.deserializeStream(fileInputStream)
         //        context.addTaskCompletionListener(context => deserializeStream.close())
         deserializeStream.asIterator.asInstanceOf[Iterator[VectorWithNorms]]
+    }
+
+
+
+
+
+
+    def readInvPartition(key: (Int, Int), id: String, broadcastedConf: Broadcast[SerializableWritable[Configuration]], taskContext: TaskContext): Iterator[SimpleInvertedIndex] = {
+        val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
+        readInvFile(new Path(partitionFile), broadcastedConf, taskContext)
+        //         List[VectorWithNorms]().toIterator
+    }
+
+    def readInvFile(path: Path, broadcastedConf: Broadcast[SerializableWritable[Configuration]], context: TaskContext) = {
+        val env = SparkEnv.get
+        val fs = path.getFileSystem(broadcastedConf.value.value)
+        val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
+        val fileInputStream = fs.open(path, bufferSize)
+        val serializer = env.serializer.newInstance()
+
+        val deserializeStream = serializer.deserializeStream(fileInputStream)
+        //        context.addTaskCompletionListener(context => deserializeStream.close())
+        deserializeStream.asIterator.asInstanceOf[Iterator[SimpleInvertedIndex]]
     }
 
     def getSums(i: Int): Array[Int] = {
@@ -47,13 +72,25 @@ class ExternalFileManager(local:Boolean = false) extends Serializable {
         val id = r.context.applicationId
         val BVConf = r.context.broadcast(new SerializableWritable(r.context.hadoopConfiguration))
         x.foreach { case (k, v) =>
-            writeFile(k, v, id,BVConf)
+            writeVecFile(k, v, id,BVConf)
         }
         val y = x.collect
 
     }
 
-//    def writePartitionListsToFile(r: RDD[((Int, Int), List[List[VectorWithNorms]])]) = {
+
+    def writeInvertedIndexesToFile(r: RDD[((Int, Int), Iterable[SimpleInvertedIndex])]) = {
+        val id = r.context.applicationId
+        val BVConf = r.context.broadcast(new SerializableWritable(r.context.hadoopConfiguration))
+        r.foreach { case (k, v) =>
+            writeInvFile(k, v, id,BVConf)
+        }
+        val y = r.collect
+
+    }
+
+
+    //    def writePartitionListsToFile(r: RDD[((Int, Int), List[List[VectorWithNorms]])]) = {
 //        val x = r.groupByKey()
 //        val id = r.context.applicationId
 //        val BVConf = r.context.broadcast(new SerializableWritable(r.context.hadoopConfiguration))
@@ -114,22 +151,33 @@ class ExternalFileManager(local:Boolean = false) extends Serializable {
 
     }
 
-    def writeFile(key: (Int, Int), f: Iterable[VectorWithNorms], id:String, BVConf:Broadcast[SerializableWritable[Configuration]]) = {
+    def writeVecFile(key: (Int, Int), f: Iterable[VectorWithNorms], id:String, BVConf:Broadcast[SerializableWritable[Configuration]]) = {
         val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
         val path = new Path(partitionFile)
         val fs = path.getFileSystem(BVConf.value.value)
 
         val env = SparkEnv.get
         val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
-        if(fs.exists(path)){
-//            val output = fs.append(path, bufferSize)
-//
-////            println(s"writing vector to file $id: " + f)
-//            val serialized = env.serializer.newInstance().serializeStream(output)
-//            serialized.writeAll(f.toIterator)
-//            output.close()
+        if(!fs.exists(path)) {
+            val output = fs.create(path, false, bufferSize)
+            val serialized = env.serializer.newInstance().serializeStream(output)
+            serialized.writeAll(f.toIterator)
+            output.close()
         }
-        else{
+
+
+    }
+
+
+
+    def writeInvFile(key: (Int, Int), f: Iterable[SimpleInvertedIndex], id:String, BVConf:Broadcast[SerializableWritable[Configuration]]) = {
+        val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
+        val path = new Path(partitionFile)
+        val fs = path.getFileSystem(BVConf.value.value)
+
+        val env = SparkEnv.get
+        val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
+        if(!fs.exists(path)) {
             val output = fs.create(path, false, bufferSize)
 //            println(s"writing vector to file $id: " + f)
             val serialized = env.serializer.newInstance().serializeStream(output)

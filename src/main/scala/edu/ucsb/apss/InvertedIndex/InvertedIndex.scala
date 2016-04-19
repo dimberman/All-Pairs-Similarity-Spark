@@ -9,8 +9,7 @@ import edu.ucsb.apss.util.ExternalFileManager
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import org.apache.log4j.Logger
 import org.apache.spark.{AccumulatorParam, Accumulator, SparkConf, SparkContext}
-import scala.collection.mutable.{Map => MMap}
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{Map => MMap, ArrayBuffer}
 
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
@@ -26,16 +25,11 @@ case class BucketHolder(b: (Int, Int)) extends Serializable
 
 case class SimpleInvertedIndex(indices: Map[Int, List[FeaturePair]])
 
-case class InvertedIndexInfo(bucket: Int = -1, tl: Int = -1,  var splitIndex: Int = 0, var numSplits: Int = 1)
-
 
 case class InvertedIndex(indices: Map[Int, List[FeaturePair]], bucket: Int = -1, tl: Int = -1, var splitIndex: Int = 0, var numSplits: Int = 1)
 
 object InvertedIndex {
     type IndexMap = MMap[Int, List[FeaturePair]]
-
-    import HoldensPartitioner._
-
     type Bucket = (Int, Int)
 
     val log = Logger.getLogger(this.getClass)
@@ -45,7 +39,7 @@ object InvertedIndex {
 
 
         val incorrectAccum: Accumulator[ArrayBuffer[String]] = bucketizedVectors.context.accumulator(ArrayBuffer(""))(StringAccumulatorParam)
-        val splitFeaturePairs: RDD[((Int, Int), (IndexMap, Bucket))] = splitBucketizedVectors(bucketizedVectors, needsSplitting, numParts)
+        val splitFeaturePairs: RDD[((Int, Int), (IndexMap, Bucket))] = extractInvertedIndex(bucketizedVectors)
 
         val mergedFeaturePairs = splitFeaturePairs.reduceByKey {
             case ((map1, idx1), (map2, idx2)) => {
@@ -66,6 +60,29 @@ object InvertedIndex {
         require(incorrectAccum.value.length < 2, "there were incorrectly partitioned inverted index values")
 
         mergedFeaturePairs.mapValues { case (a, (buck, tl)) => new InvertedIndex(a.toMap, buck, tl) }
+    }
+
+
+    def generateSplitInvertedIndexes(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)], invSize: Int): RDD[((Int, Int), Iterable[SimpleInvertedIndex])] = {
+
+
+        val incorrectAccum: Accumulator[ArrayBuffer[String]] = bucketizedVectors.context.accumulator(ArrayBuffer(""))(StringAccumulatorParam)
+
+
+
+
+        val marked = bucketizedVectors.groupByKey().flatMap{
+            case (x,i) =>
+                i.zipWithIndex.map{case(j,k) => ((x,k/invSize),j)}
+        }
+        marked.groupByKey().map {
+            case((k,v),i) =>
+                (k, extractFeaturePairs(i.toList))
+
+        }.groupByKey()
+
+
+
     }
 
 
@@ -94,7 +111,46 @@ object InvertedIndex {
     }
 
 
-    def splitBucketizedVectors(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)], needsSplitting: Map[(Int, Int), Long] = Map(), numParts: Int): RDD[((Int, Int), (IndexMap,  Bucket))] = {
+    def extractFeaturePairs(vectors: List[VectorWithNorms]): SimpleInvertedIndex = {
+        val featurePairs = vectors.map(createFeaturePairs)
+        val featureMap = featurePairs.aggregate(MMap[Int, List[FeaturePair]]())(
+            addFeaturePair,
+            mergeFeatureMaps
+        )
+
+        val x =   featureMap.mapValues(a => a.toList).toMap
+
+        SimpleInvertedIndex(x)
+    }
+
+    def addFeaturePair(a: MMap[Int, List[FeaturePair]], b: Array[(Int, List[FeaturePair])]): MMap[Int, List[FeaturePair]] = {
+        b.foreach {
+            case (k, v) =>
+                if (a.contains(k)) {
+                    a(k) = a(k) ++ v
+                }
+                else a(k) = v
+        }
+        a
+
+
+    }
+
+
+    def mergeFeatureMaps(a: MMap[Int, List[FeaturePair]], b: MMap[Int, List[FeaturePair]]): MMap[Int, List[FeaturePair]] = {
+        for (k <- b.keys) {
+            if (a.contains(k)) {
+                a(k) = a(k) ++ b(k)
+            }
+            else {
+                a(k) = b(k)
+            }
+        }
+        a
+    }
+
+
+    def extractInvertedIndex(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)]): RDD[((Int, Int), (IndexMap, Bucket))] = {
         bucketizedVectors.map {
             case (x, v) => {
                 val featureMap: IndexMap = MMap[Int, List[FeaturePair]]() ++= createFeaturePairs(v).toMap
@@ -132,6 +188,11 @@ object InvertedIndex {
     }
 
     def extractIndexMap(i: InvertedIndex): Map[Long, Int] = {
+        i.indices.values.map(a => a.map(_.id)).reduce(_ ++ _).distinct.zipWithIndex.toMap
+    }
+
+
+    def extractIndexMaFromSimple(i: SimpleInvertedIndex): Map[Long, Int] = {
         i.indices.values.map(a => a.map(_.id)).reduce(_ ++ _).distinct.zipWithIndex.toMap
     }
 }

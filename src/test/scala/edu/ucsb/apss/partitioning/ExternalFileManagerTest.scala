@@ -26,7 +26,7 @@ class ExternalFileManagerTest extends FlatSpec with Matchers with BeforeAndAfter
 
     "Partition Manager" should "write to file" in {
 
-        manager.writeFile(k, bucketizedVector, sc.applicationId, sc.broadcast(new SerializableWritable(sc.hadoopConfiguration)))
+        manager.writeVecFile(k, bucketizedVector, sc.applicationId, sc.broadcast(new SerializableWritable(sc.hadoopConfiguration)))
 
         assert(Files.exists(Paths.get(path(sc.applicationId, k))))
         val f = new File(s"/tmp/${sc.applicationId}/"+PartitionHasher.partitionHash(k))
@@ -34,7 +34,7 @@ class ExternalFileManagerTest extends FlatSpec with Matchers with BeforeAndAfter
     }
 
     it should "read from a file it wrote" in {
-        manager.writeFile(k, bucketizedVector, sc.applicationId, sc.broadcast(new SerializableWritable(sc.hadoopConfiguration)))
+        manager.writeVecFile(k, bucketizedVector, sc.applicationId, sc.broadcast(new SerializableWritable(sc.hadoopConfiguration)))
 
         assert(Files.exists(Paths.get(s"/tmp/${sc.applicationId}/"+PartitionHasher.partitionHash(k))))
 
@@ -42,7 +42,7 @@ class ExternalFileManagerTest extends FlatSpec with Matchers with BeforeAndAfter
 
         Files.exists(Paths.get(path(sc.applicationId, k))) shouldBe true
 
-        val answer = manager.readFile(new Path(path(sc.applicationId, k)),BVConf, org.apache.spark.TaskContext.get())
+        val answer = manager.readInvFile(new Path(path(sc.applicationId, k)),BVConf, org.apache.spark.TaskContext.get())
         answer.next() shouldEqual bucketizedVector.head
         val f = new File(s"/tmp/${sc.applicationId}/"+PartitionHasher.partitionHash(k))
         f.delete()
@@ -50,7 +50,7 @@ class ExternalFileManagerTest extends FlatSpec with Matchers with BeforeAndAfter
 
 
     it should "only write to a file once" in {
-        manager.writeFile(k, bucketizedVector, sc.applicationId, sc.broadcast(new SerializableWritable(sc.hadoopConfiguration)))
+        manager.writeVecFile(k, bucketizedVector, sc.applicationId, sc.broadcast(new SerializableWritable(sc.hadoopConfiguration)))
 
         assert(Files.exists(Paths.get(s"/tmp/${sc.applicationId}/"+PartitionHasher.partitionHash(k))))
 
@@ -62,13 +62,13 @@ class ExternalFileManagerTest extends FlatSpec with Matchers with BeforeAndAfter
 
         Files.exists(Paths.get(path(sc.applicationId, k))) shouldBe true
 
-        val answer1 = manager.readFile(new Path(path(sc.applicationId, k)),BVConf, org.apache.spark.TaskContext.get()).toList
+        val answer1 = manager.readInvFile(new Path(path(sc.applicationId, k)),BVConf, org.apache.spark.TaskContext.get()).toList
         val numlines = answer1.size
         answer1.head shouldEqual bucketizedVector.head
 
-        manager.writeFile(k, bucketizedVector, sc.applicationId, sc.broadcast(new SerializableWritable(sc.hadoopConfiguration)))
+        manager.writeVecFile(k, bucketizedVector, sc.applicationId, sc.broadcast(new SerializableWritable(sc.hadoopConfiguration)))
 
-        val answer2 = manager.readFile(new Path(path(sc.applicationId, k)),BVConf, org.apache.spark.TaskContext.get()).toList
+        val answer2 = manager.readInvFile(new Path(path(sc.applicationId, k)),BVConf, org.apache.spark.TaskContext.get()).toList
         answer2.foreach(println)
         answer2.size shouldEqual numlines
         answer2.head shouldEqual   bucketizedVector.head
@@ -85,7 +85,7 @@ class ExternalFileManagerTest extends FlatSpec with Matchers with BeforeAndAfter
         rdd.count()
         assert(Files.exists(Paths.get(path(sc.applicationId, k))))
         val f = new File(s"/tmp/${sc.applicationId}/"+PartitionHasher.partitionHash(k))
-        manager.readPartition(k,sc.applicationId, BVConf, org.apache.spark.TaskContext.get()).foreach(println)
+        manager.readInvPartition(k,sc.applicationId, BVConf, org.apache.spark.TaskContext.get()).foreach(println)
         f
         f.delete()
     }

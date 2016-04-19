@@ -1,7 +1,7 @@
 package edu.ucsb.apss.PSS
 
 import edu.ucsb.apss.InvertedIndex.InvertedIndex._
-import edu.ucsb.apss.InvertedIndex.InvertedIndex
+import edu.ucsb.apss.InvertedIndex.{SimpleInvertedIndex, InvertedIndex}
 import edu.ucsb.apss.util.{BoundedPriorityQueue, ExternalFileManager}
 
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
@@ -25,60 +25,9 @@ import scala.collection.mutable.{ListBuffer, ArrayBuffer}
   */
 
 
-case class DebugVal(key:(Int,Int), time:Double, numPairs:Int, numBuckets:Int)
-
-object DebugAcummulatorParam extends AccumulableParam[ArrayBuffer[DebugVal],DebugVal] {
-    def zero(value:ArrayBuffer[DebugVal]) : ArrayBuffer[DebugVal] = value
-    def addInPlace(s1:ArrayBuffer[DebugVal], s2:ArrayBuffer[DebugVal]):ArrayBuffer[DebugVal] = {
-        s1 ++= s2
-        s1
-    }
-    def addAccumulator(s1:ArrayBuffer[DebugVal], d:DebugVal) = {
-        s1 += d
-        s1
-    }
-}
 
 
-
-object LineAcummulatorParam extends AccumulatorParam[String] {
-    def zero(value:String) : String = value
-    def addInPlace(s1:String, s2:String):String = s1 + "\n" + s2
-}
-
-
-class BucketCompartmentalizer(cSize: Int) extends Serializable {
-
-    def aggregateBucket(input: RDD[((Int, Int), VectorWithNorms)]) = {
-        input.aggregateByKey(ArrayBuffer[ArrayBuffer[VectorWithNorms]]())(addVector, mergeB)
-    }
-
-
-    def addVector(a: ArrayBuffer[ArrayBuffer[VectorWithNorms]], vec: VectorWithNorms): ArrayBuffer[ArrayBuffer[VectorWithNorms]] = {
-        var merged = false
-        var i = 0
-        while (i < a.size && !merged) {
-            if (a(i).size < cSize) {
-                merged = true
-                a(i) += vec
-            }
-            i += 1
-        }
-        if (!merged) {
-            val n = ArrayBuffer[VectorWithNorms](vec)
-            a += n
-        }
-        a
-    }
-
-    def mergeB(a: ArrayBuffer[ArrayBuffer[VectorWithNorms]], b: ArrayBuffer[ArrayBuffer[VectorWithNorms]]): ArrayBuffer[ArrayBuffer[VectorWithNorms]] = {
-        a ++= b
-        a
-    }
-
-}
-
-class HoldensPSSDriver {
+class PSSDriver {
 
     import edu.ucsb.apss.util.PartitionUtil._
     import HoldensPartitioner._
@@ -115,7 +64,7 @@ class HoldensPSSDriver {
     }
 
 
-    def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, debug: Boolean = true) = {
+    def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize:Int=100, debug: Boolean = true) = {
         debugPSS = debug
         val bucketizedVectors: RDD[BucketizedVector] = bucketizeVectors(sc, vectors, numBuckets, threshold).repartition(30)
 
@@ -124,13 +73,13 @@ class HoldensPSSDriver {
 
 //        if (debugPSS) staticPartitioningBreakdown(bucketizedVectors, threshold, numBuckets)
 
-        val c = new BucketCompartmentalizer(1000)
+        val invertedIndexes = generateSplitInvertedIndexes(bucketizedVectors,100)
+
 
         manager.writePartitionsToFile(bucketizedVectors)
 
+//        manager.writeInvertedIndexesToFile(invertedIndexes)
 
-        val numParts = (numBuckets * (numBuckets + 1)) / 2
-        val invertedIndexes = generateInvertedIndexes(bucketizedVectors, Map(), numParts)
         calculateCosineSimilarityByPullingFromFile(invertedIndexes, threshold, numBuckets)
     }
 
@@ -207,7 +156,7 @@ class HoldensPSSDriver {
     def pullKey(a: (Int, Int)) = (a._1 * (a._1 + 1)) / 2 + a._2
 
 
-    def calculateCosineSimilarityByPullingFromFile(invertedIndexes: RDD[((Int, Int), InvertedIndex)], threshold: Double, numBuckets: Int): RDD[(Long, Long, Double)] = {
+    def calculateCosineSimilarityByPullingFromFile(invertedIndexes: RDD[((Int, Int), Iterable[SimpleInvertedIndex])], threshold: Double, numBuckets: Int, calcSize:Int = 100): RDD[(Long, Long, Double)] = {
         //        log.info(s"num partitions: ${partitionedTasks.partitions.length}")
         val skipped: Accumulator[Long] = invertedIndexes.context.accumulator[Long](0)
         val reduced: Accumulator[Long] = invertedIndexes.context.accumulator[Long](0)
@@ -216,7 +165,7 @@ class HoldensPSSDriver {
 
         invertedIndexes.count()
 
-        val buckets = invertedIndexes.filter(_._2.indices.nonEmpty).keys.collect()
+        val buckets = invertedIndexes.filter(_._2.nonEmpty).keys.collect()
         val neededVecs = buckets.sortBy(a => a)
 
 
@@ -265,13 +214,13 @@ class HoldensPSSDriver {
         log.info(buckAccum.value)
 
         val similarities: RDD[Similarity] = invertedIndexes.flatMap {
-            case ((key, inv)) =>
+            case (((bucket,tl), invIter)) =>
                 val manager = new ExternalFileManager
                 //                val get = List().toIterator
 
                 var numVecPair = 0
                 val start = System.currentTimeMillis()
-                val get = manager.assignByBucket(inv.bucket, inv.tl, numBuckets, neededVecs)
+                val get = manager.assignByBucket(bucket, tl, numBuckets, neededVecs)
                 val filtered = get.filter(neededVecs.contains)
                 val numBuc = filtered.size
 //                println(s"breakdown: assignment ${get.mkString(",")}")
@@ -281,61 +230,74 @@ class HoldensPSSDriver {
 
                 filtered.foreach {
                     case (key) =>
-                        val vectors = manager.readPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.filter(_._2 % inv.numSplits == inv.splitIndex).map(_._1)
-                        val indexMap = InvertedIndex.extractIndexMap(inv)
-                        val score = new Array[Double](indexMap.size)
-                        val (bucket, invertedIndex) = (inv.bucket, inv.indices)
-                        vectors.foreach {
-                            case v_j =>
-                                var r_j = v_j.l1
-                                val vec = v_j.vector
-                                //                                val mutualVectorFeatures = vec.indices.zipWithIndex.filter(b => invertedIndex.contains(b._1))
-                                var j = 0
-                                vec.indices.foreach {
-                                    case (featureIndex) =>
-                                        if (invertedIndex.contains(featureIndex)) {
-                                            val weight_j = vec.values(j)
-                                            invertedIndex(featureIndex).foreach {
-                                                case (featurePair) => {
-                                                    val (ind_i, weight_i) = (featurePair.id, featurePair.weight)
-                                                    val l = indexMap(ind_i)
-                                                    //                                                    if (!((score(l) + inv.maxMap(ind_i) * r_j) < threshold))
-                                                    score(l) += weight_i * weight_j
+                        val externalVectors = manager.readVecPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.map(_._1)
+                        invIter.foreach{
+                            inv =>
+                                val indexMap = InvertedIndex.extractIndexMaFromSimple(inv)
+                                val score = new Array[Double](calcSize)
+                                val invertedIndex = inv.indices
+                                externalVectors.foreach {
+                                    case v_j =>
+                                        var r_j = v_j.l1
+                                        val vec = v_j.vector
+//                                        val mutualVectorFexatures = vec.indices.zipWithIndex.filter(b => invertedIndex.contains(b._1))
+                                        var j = 0
+                                        vec.indices.foreach {
+                                            case (featureIndex) =>
+                                                if (invertedIndex.contains(featureIndex)) {
+                                                    val weight_j = vec.values(j)
+                                                    invertedIndex(featureIndex).foreach {
+                                                        case (featurePair) => {
+                                                            val (ind_i, weight_i) = (featurePair.id, featurePair.weight)
+                                                            val l = indexMap(ind_i)
+                                                            //                                                    if (!((score(l) + inv.maxMap(ind_i) * r_j) < threshold))
+                                                            score(l) += weight_i * weight_j
+                                                        }
+                                                        //                                                    r_j -= weight_j
+                                                    }
                                                 }
-                                                //                                                    r_j -= weight_j
-                                            }
+                                                j += 1
                                         }
-                                        j += 1
+
+                                        indexMap.keys.foreach {
+                                            ind_i =>
+                                                val l = indexMap(ind_i)
+                                                val ind_j = v_j.index
+                                                if (score(l) > threshold && ind_i != ind_j) {
+                                                    val c = Similarity(ind_i, ind_j.toLong, score(l))
+                                                    answer += c
+                                                    all += 1
+                                                    reduced += 1
+                                                    numVecPair +=1
+
+                                                }
+                                                else {
+                                                    //                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
+                                                    skipped += 1
+                                                    all += 1
+                                                    numVecPair +=1
+
+                                                }
+                                        }
+                                        for (l <- score.indices) {
+                                            score(l) = 0
+                                        }
                                 }
 
-                                indexMap.keys.foreach {
-                                    ind_i =>
-                                        val l = indexMap(ind_i)
-                                        val ind_j = v_j.index
-                                        if (score(l) > threshold && ind_i != ind_j) {
-                                            val c = Similarity(ind_i, ind_j.toLong, score(l))
-                                            answer += c
-                                            all += 1
-                                            reduced += 1
-                                            numVecPair +=1
 
-                                        }
-                                        else {
-                                            //                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
-                                            skipped += 1
-                                            all += 1
-                                            numVecPair +=1
-
-                                        }
-                                }
-                                for (l <- score.indices) {
-                                    score(l) = 0
-                                }
                         }
+
+
+
+
+
+
+
+
                 }
                 val time = (System.currentTimeMillis() - start).toDouble/1000
 //                driverAccum += s"breakdown: partition ${(inv.bucket,inv.tl)} took $time seconds to calculate $numVecPair pairs from $numBuc buckets"
-                driverAccum += DebugVal((inv.bucket, inv.tl), time, numVecPair, numBuc)
+                driverAccum += DebugVal((bucket,tl), time, numVecPair, numBuc)
                 answer
         }.persist()
         similarities.count()
@@ -362,8 +324,65 @@ class HoldensPSSDriver {
         similarities.map(s => (s.i, s.j, s.similarity))
     }
 
+
+
+
+
 }
 
+
+case class DebugVal(key:(Int,Int), time:Double, numPairs:Int, numBuckets:Int)
+
+object DebugAcummulatorParam extends AccumulableParam[ArrayBuffer[DebugVal],DebugVal] {
+    def zero(value:ArrayBuffer[DebugVal]) : ArrayBuffer[DebugVal] = value
+    def addInPlace(s1:ArrayBuffer[DebugVal], s2:ArrayBuffer[DebugVal]):ArrayBuffer[DebugVal] = {
+        s1 ++= s2
+        s1
+    }
+    def addAccumulator(s1:ArrayBuffer[DebugVal], d:DebugVal) = {
+        s1 += d
+        s1
+    }
+}
+
+
+
+object LineAcummulatorParam extends AccumulatorParam[String] {
+    def zero(value:String) : String = value
+    def addInPlace(s1:String, s2:String):String = s1 + "\n" + s2
+}
+
+
+class BucketCompartmentalizer(cSize: Int) extends Serializable {
+
+    def aggregateBucket(input: RDD[((Int, Int), VectorWithNorms)]) = {
+        input.aggregateByKey(ArrayBuffer[ArrayBuffer[VectorWithNorms]]())(addVector, mergeB)
+    }
+
+
+    def addVector(a: ArrayBuffer[ArrayBuffer[VectorWithNorms]], vec: VectorWithNorms): ArrayBuffer[ArrayBuffer[VectorWithNorms]] = {
+        var merged = false
+        var i = 0
+        while (i < a.size && !merged) {
+            if (a(i).size < cSize) {
+                merged = true
+                a(i) += vec
+            }
+            i += 1
+        }
+        if (!merged) {
+            val n = ArrayBuffer[VectorWithNorms](vec)
+            a += n
+        }
+        a
+    }
+
+    def mergeB(a: ArrayBuffer[ArrayBuffer[VectorWithNorms]], b: ArrayBuffer[ArrayBuffer[VectorWithNorms]]): ArrayBuffer[ArrayBuffer[VectorWithNorms]] = {
+        a ++= b
+        a
+    }
+
+}
 
 
 

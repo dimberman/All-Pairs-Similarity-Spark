@@ -1,6 +1,6 @@
 package edu.ucsb.apss
 
-import edu.ucsb.apss.PSS.HoldensPSSDriver
+import edu.ucsb.apss.PSS.PSSDriver
 import edu.ucsb.apss.preprocessing.TweetToVectorConverter
 import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
 import org.apache.hadoop.hdfs.server.common.Storage
@@ -41,7 +41,7 @@ object Main {
         val timings = ArrayBuffer[Long]()
 
 
-        val driver = new HoldensPSSDriver
+        val driver = new PSSDriver
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()

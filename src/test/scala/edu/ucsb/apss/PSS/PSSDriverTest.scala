@@ -9,17 +9,17 @@ import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
 /**
   * Created by dimberman on 1/18/16.
   */
-class HoldensPSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
+class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     val sc = Context.sc
 
-    val driver = new HoldensPSSDriver
+    val driver = new PSSDriver
 
 
     "apss" should "calculate the most similar vectors" in {
         val par = sc.parallelize(Seq("a a a a", "a a b b", "a b f g ", "b b b b"))
         val converter = new TweetToVectorConverter
         val vecs = par.map(converter.convertTweetToVector)
-        val answer = driver.run(sc, vecs, 2, .5)
+        val answer = driver.run(sc, vecs, 1, .4)
         val x = answer.collect().sortBy(_._1)
         x.foreach(println)
 
