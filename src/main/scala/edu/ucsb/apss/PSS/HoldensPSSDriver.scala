@@ -1,8 +1,8 @@
-package edu.ucsb.apss.holdensDissimilarity
+package edu.ucsb.apss.PSS
 
 import edu.ucsb.apss.InvertedIndex.InvertedIndex._
 import edu.ucsb.apss.InvertedIndex.InvertedIndex
-import edu.ucsb.apss.util.ExternalFileManager
+import edu.ucsb.apss.util.{BoundedPriorityQueue, ExternalFileManager}
 
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 

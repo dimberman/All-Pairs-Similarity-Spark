@@ -1,6 +1,5 @@
 package edu.ucsb.apss.util
 
-import edu.ucsb.apss.VectorWithNorms
 import org.apache.spark.mllib.linalg.SparseVector
 
 /**

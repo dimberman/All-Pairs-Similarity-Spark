@@ -1,4 +1,4 @@
-package edu.ucsb.apss.holdensDissimilarity
+package edu.ucsb.apss.util
 
 import java.io.Serializable
 import java.util.{PriorityQueue => JPriorityQueue}

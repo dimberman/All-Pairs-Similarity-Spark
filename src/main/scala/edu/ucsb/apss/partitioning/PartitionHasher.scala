@@ -1,14 +1,5 @@
 package edu.ucsb.apss.partitioning
 
-import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
-import edu.ucsb.apss.{VectorWithNorms, BucketMapping}
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark._
-import org.apache.spark.mllib.linalg.SparseVector
-import org.apache.spark.rdd.RDD
-import org.json4s.jackson.Json
 
 /**
   * Created by dimberman on 1/12/16.

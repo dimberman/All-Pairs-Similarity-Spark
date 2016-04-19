@@ -1,4 +1,4 @@
-package edu.ucsb.apss.holdensDissimilarity
+package edu.ucsb.apss.PSS
 
 import edu.ucsb.apss.{Sim, Context}
 import edu.ucsb.apss.partitioning.HoldensPartitioner

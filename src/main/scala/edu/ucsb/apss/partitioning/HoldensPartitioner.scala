@@ -1,9 +1,7 @@
 package edu.ucsb.apss.partitioning
 
-import edu.ucsb.apss.VectorWithNorms
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
-import edu.ucsb.apss.util.{PartitionUtil, VectorWithIndex}
-import edu.ucsb.apss.{BucketAlias, VectorWithNorms}
+import edu.ucsb.apss.util.{VectorWithNorms, PartitionUtil, VectorWithIndex}
 import org.apache.spark.{Accumulator, RangePartitioner, SparkContext}
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
