@@ -4,6 +4,7 @@ import java.io.File
 import java.nio.file.{Files, Paths}
 
 import edu.ucsb.apss.Context
+import edu.ucsb.apss.util.ExternalFileManager
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -14,9 +15,9 @@ import org.scalatest.{Matchers, BeforeAndAfter, FlatSpec}
 /**
   * Created by dimberman on 4/14/16.
   */
-class PartitionManagerTest extends FlatSpec with Matchers with BeforeAndAfter {
+class ExternalFileManagerTest extends FlatSpec with Matchers with BeforeAndAfter {
 
-    val manager = new PartitionManager
+    val manager = new ExternalFileManager
     val sc = Context.sc
     val path = (s:String, i:(Int,Int)) => s"/tmp/$s/${PartitionHasher.partitionHash(i)}"
 

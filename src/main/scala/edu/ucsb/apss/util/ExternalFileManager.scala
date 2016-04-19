@@ -1,18 +1,17 @@
-package edu.ucsb.apss.partitioning
+package edu.ucsb.apss.util
 
-import java.io.FileOutputStream
-
+import edu.ucsb.apss.partitioning.PartitionHasher
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkEnv, TaskContext, SerializableWritable, SparkContext}
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.rdd.RDD
+import org.apache.spark.{SerializableWritable, SparkEnv, TaskContext}
 
 /**
   * Created by dimberman on 4/14/16.
   */
-class PartitionManager(local:Boolean = false) extends Serializable {
+class ExternalFileManager(local:Boolean = false) extends Serializable {
 
 
     def readPartition(key: (Int, Int), id: String, broadcastedConf: Broadcast[SerializableWritable[Configuration]], taskContext: TaskContext): Iterator[VectorWithNorms] = {

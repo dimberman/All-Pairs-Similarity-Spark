@@ -3,8 +3,9 @@ package edu.ucsb.apss.InvertedIndex
 import java.io.{File, PrintWriter}
 
 
-import edu.ucsb.apss.partitioning.{PartitionHasher, PartitionManager, HoldensPartitioner}
+import edu.ucsb.apss.partitioning.{PartitionHasher, HoldensPartitioner}
 import edu.ucsb.apss.preprocessing.TweetToVectorConverter
+import edu.ucsb.apss.util.ExternalFileManager
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import org.apache.log4j.Logger
 import org.apache.spark.{AccumulatorParam, Accumulator, SparkConf, SparkContext}
@@ -73,7 +74,7 @@ object InvertedIndex {
         val neededVecs = buckets.sortBy(a => a)
 
 
-        val manager = new PartitionManager
+        val manager = new ExternalFileManager
 
         val pairs = buckets.map { case (b, t) => ((b, t), manager.assignByBucket(b, t, 0, neededVecs)) }
         val sums = pairs.toMap.mapValues(c => c.map(a => bMap(a)).filter(_ != -1).sum).map(identity)

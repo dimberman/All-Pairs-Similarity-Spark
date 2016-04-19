@@ -2,19 +2,14 @@ package edu.ucsb.apss.holdensDissimilarity
 
 import edu.ucsb.apss.InvertedIndex.InvertedIndex._
 import edu.ucsb.apss.InvertedIndex.InvertedIndex
-import edu.ucsb.apss.VectorWithNorms
-import edu.ucsb.apss.VectorWithNorms
-import edu.ucsb.apss.util.PartitionUtil
+import edu.ucsb.apss.util.ExternalFileManager
 
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
-import scala.collection.mutable
 
-//import edu.ucsb.apss.metrics.PartitionMap
-import edu.ucsb.apss.partitioning.{PartitionManager, PartitionHasher, HoldensPartitioner}
+import edu.ucsb.apss.partitioning.{PartitionHasher, HoldensPartitioner}
 import org.apache.spark._
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
-import org.apache.spark.storage.StorageLevel
 import org.apache.log4j.Logger
 import scala.collection.mutable.{HashMap => MMap}
 
@@ -125,7 +120,7 @@ class HoldensPSSDriver {
         val bucketizedVectors: RDD[BucketizedVector] = bucketizeVectors(sc, vectors, numBuckets, threshold).repartition(30)
 
         bucketizedVectorSizeMap = bucketizedVectors.countByKey().toMap.withDefault(_=> -1)
-        val manager = new PartitionManager
+        val manager = new ExternalFileManager
 
 //        if (debugPSS) staticPartitioningBreakdown(bucketizedVectors, threshold, numBuckets)
 
@@ -225,7 +220,7 @@ class HoldensPSSDriver {
         val neededVecs = buckets.sortBy(a => a)
 
 
-        val manager = new PartitionManager
+        val manager = new ExternalFileManager
 
         val pairs = buckets.map { case (b, t) => ((b, t), manager.assignByBucket(b, t, numBuckets,neededVecs)) }
         //
@@ -255,24 +250,23 @@ class HoldensPSSDriver {
 
 
         val id = invertedIndexes.context.applicationId
-        val splitInvertedIndexed = InvertedIndex.splitInvertedIndexes(invertedIndexes, bucketizedVectorSizeMap, numBuckets).repartition(29)
-        val buckAccum =  splitInvertedIndexed.context.accumulator("","debug info")(LineAcummulatorParam)
-        val driverAccum =  splitInvertedIndexed.context.accumulable(ArrayBuffer[DebugVal](),"debug info")(DebugAcummulatorParam)
+        val buckAccum =  invertedIndexes.context.accumulator("","debug info")(LineAcummulatorParam)
+        val driverAccum =  invertedIndexes.context.accumulable(ArrayBuffer[DebugVal](),"debug info")(DebugAcummulatorParam)
 
 
-        splitInvertedIndexed.foreachPartition(i => {
-          val handled = i.map(_._1).map((new PartitionHasher).partitionUnHash).toList
-            buckAccum += s"breakdown: ${handled.mkString(",")} are all in the same partition"
-
-        }
-        )
+//        invertedIndexes.foreachPartition(i => {
+//          val handled = i.map(_._1).map((new PartitionHasher).partitionUnHash).toList
+//            buckAccum += s"breakdown: ${handled.mkString(",")} are all in the same partition"
+//
+//        }
+//        )
 
 
         log.info(buckAccum.value)
 
-        val similarities: RDD[Similarity] = splitInvertedIndexed.flatMap {
+        val similarities: RDD[Similarity] = invertedIndexes.flatMap {
             case ((key, inv)) =>
-                val manager = new PartitionManager
+                val manager = new ExternalFileManager
                 //                val get = List().toIterator
 
                 var numVecPair = 0
