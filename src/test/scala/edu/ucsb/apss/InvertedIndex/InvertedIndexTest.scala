@@ -62,10 +62,6 @@ class InvertedIndexTest extends FlatSpec with Matchers with BeforeAndAfter {
         smallFeaturePairSet
     }
 
-    "deriveID" should "create unique IDs that should never collide" in {
-        InvertedIndex.deriveID((10, 10),numParts = 0) == InvertedIndex.deriveID((11, 0),numParts = 0) shouldBe false
-    }
-
 
     "mergeFeaturePairs" should "merge feature pairs when there is a collision" in {
         val v1 = MMap[Int, List[FeaturePair]]() + (1 -> List(FeaturePair(7, 0.778499535068532)))

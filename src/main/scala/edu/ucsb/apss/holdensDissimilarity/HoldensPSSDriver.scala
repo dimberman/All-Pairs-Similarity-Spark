@@ -11,7 +11,7 @@ import scala.collection.mutable
 
 //import edu.ucsb.apss.metrics.PartitionMap
 import edu.ucsb.apss.partitioning.{PartitionManager, PartitionHasher, HoldensPartitioner}
-import org.apache.spark.{SerializableWritable, Accumulator, SparkContext}
+import org.apache.spark._
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
@@ -28,6 +28,28 @@ import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 /**
   * Created by dimberman on 1/3/16.
   */
+
+
+case class DebugVal(key:(Int,Int), time:Double, numPairs:Int, numBuckets:Int)
+
+object DebugAcummulatorParam extends AccumulableParam[ArrayBuffer[DebugVal],DebugVal] {
+    def zero(value:ArrayBuffer[DebugVal]) : ArrayBuffer[DebugVal] = value
+    def addInPlace(s1:ArrayBuffer[DebugVal], s2:ArrayBuffer[DebugVal]):ArrayBuffer[DebugVal] = {
+        s1 ++= s2
+        s1
+    }
+    def addAccumulator(s1:ArrayBuffer[DebugVal], d:DebugVal) = {
+        s1 += d
+        s1
+    }
+}
+
+
+
+object LineAcummulatorParam extends AccumulatorParam[String] {
+    def zero(value:String) : String = value
+    def addInPlace(s1:String, s2:String):String = s1 + "\n" + s2
+}
 
 
 class BucketCompartmentalizer(cSize: Int) extends Serializable {
@@ -74,7 +96,7 @@ class HoldensPSSDriver {
     var tot = 0L
     var sParReduction = 0L
     var dParReduction = 0L
-
+    var bucketizedVectorSizeMap:Map[(Int,Int), Long] = _
     var appId: String = _
     var sPar = 0L
     var dPar = 0L
@@ -102,9 +124,10 @@ class HoldensPSSDriver {
         debugPSS = debug
         val bucketizedVectors: RDD[BucketizedVector] = bucketizeVectors(sc, vectors, numBuckets, threshold).repartition(30)
 
+        bucketizedVectorSizeMap = bucketizedVectors.countByKey().toMap.withDefault(_=> -1)
         val manager = new PartitionManager
 
-        if (debugPSS) staticPartitioningBreakdown(bucketizedVectors, threshold, numBuckets)
+//        if (debugPSS) staticPartitioningBreakdown(bucketizedVectors, threshold, numBuckets)
 
         val c = new BucketCompartmentalizer(1000)
 
@@ -112,18 +135,8 @@ class HoldensPSSDriver {
 
 
         val numParts = (numBuckets * (numBuckets + 1)) / 2
-
-        //        val needsSplitting = bucketizedVectors.countByKey().filter(_._2 > 2500).map { case ((a, b), c) => ((a.toInt, b.toInt), c) }.toMap
-
         val invertedIndexes = generateInvertedIndexes(bucketizedVectors, Map(), numParts)
-        val a = calculateCosineSimilarityByPullingFromFile(invertedIndexes, threshold, numBuckets)
-        //        val partitionedTasks = pairVectorsWithInvertedIndex(bucketizedVectors, invertedIndexes, numBuckets, Map())
-        //
-        //        val a: RDD[(Long, Long, Double)] = calculateCosineSimilarityUsingCogroupAndFlatmap(partitionedTasks, threshold, numBuckets)
-
-
-        a
-
+        calculateCosineSimilarityByPullingFromFile(invertedIndexes, threshold, numBuckets)
     }
 
 
@@ -242,13 +255,31 @@ class HoldensPSSDriver {
 
 
         val id = invertedIndexes.context.applicationId
+        val splitInvertedIndexed = InvertedIndex.splitInvertedIndexes(invertedIndexes, bucketizedVectorSizeMap, numBuckets).repartition(29)
+        val buckAccum =  splitInvertedIndexed.context.accumulator("","debug info")(LineAcummulatorParam)
+        val driverAccum =  splitInvertedIndexed.context.accumulable(ArrayBuffer[DebugVal](),"debug info")(DebugAcummulatorParam)
 
-        val similarities: RDD[Similarity] = invertedIndexes.flatMap {
+
+        splitInvertedIndexed.foreachPartition(i => {
+          val handled = i.map(_._1).map((new PartitionHasher).partitionUnHash).toList
+            buckAccum += s"breakdown: ${handled.mkString(",")} are all in the same partition"
+
+        }
+        )
+
+
+        log.info(buckAccum.value)
+
+        val similarities: RDD[Similarity] = splitInvertedIndexed.flatMap {
             case ((key, inv)) =>
                 val manager = new PartitionManager
                 //                val get = List().toIterator
-                val get = manager.assignByBucket(key._1, key._2, numBuckets, neededVecs)
+
+                var numVecPair = 0
+                val start = System.currentTimeMillis()
+                val get = manager.assignByBucket(inv.bucket, inv.tl, numBuckets, neededVecs)
                 val filtered = get.filter(neededVecs.contains)
+                val numBuc = filtered.size
 //                println(s"breakdown: assignment ${get.mkString(",")}")
 
 //                val answer = new ArrayBuffer[Similarity]()
@@ -256,7 +287,7 @@ class HoldensPSSDriver {
 
                 filtered.foreach {
                     case (key) =>
-                        val vectors = manager.readPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList
+                        val vectors = manager.readPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.filter(_._2 % inv.numSplits == inv.splitIndex).map(_._1)
                         val indexMap = InvertedIndex.extractIndexMap(inv)
                         val score = new Array[Double](indexMap.size)
                         val (bucket, invertedIndex) = (inv.bucket, inv.indices)
@@ -292,11 +323,15 @@ class HoldensPSSDriver {
                                             answer += c
                                             all += 1
                                             reduced += 1
+                                            numVecPair +=1
+
                                         }
                                         else {
                                             //                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
                                             skipped += 1
                                             all += 1
+                                            numVecPair +=1
+
                                         }
                                 }
                                 for (l <- score.indices) {
@@ -304,9 +339,16 @@ class HoldensPSSDriver {
                                 }
                         }
                 }
+                val time = (System.currentTimeMillis() - start).toDouble/1000
+//                driverAccum += s"breakdown: partition ${(inv.bucket,inv.tl)} took $time seconds to calculate $numVecPair pairs from $numBuc buckets"
+                driverAccum += DebugVal((inv.bucket, inv.tl), time, numVecPair, numBuc)
                 answer
         }.persist()
         similarities.count()
+
+
+        log.info(driverAccum.value.sortBy(_.numPairs).map(d => s"breakdown: partition ${d.key} took ${d.time} seconds to calculate ${d.numPairs} pairs from ${d.numBuckets} buckets").mkString("\n"))
+
         log.info("breakdown: *******************************************************")
         log.info("breakdown: dynamic partitioning:")
 

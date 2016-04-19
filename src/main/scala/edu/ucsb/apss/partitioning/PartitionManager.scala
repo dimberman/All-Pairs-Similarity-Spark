@@ -73,7 +73,8 @@ class PartitionManager(local:Boolean = false) extends Serializable {
             case 1 =>
                 val start = neededVecs.indexOf((bucket,tiedLeader))
 //                val proposedBuckets = List.range(bucket + 1, (bucket + 1) + (numBuckets - 1) / 2) :+ bucket
-                val proposedBuckets = List.range(start + 1, (start + 1) + (start - 1) / 2) :+ start
+                val proposedBuckets = (List.range(start + 1, (start + 1) + (start - 1) / 2).map(_ - neededVecs.length/2) :+ start).map(a => if(a<0)a+neededVecs.length else a)
+
 
                 val modded = proposedBuckets.map(a => a % neededVecs.size)
                 modded.map(neededVecs(_)).filter(isCandidate((bucket,tiedLeader),_)

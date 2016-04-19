@@ -15,30 +15,42 @@ import org.json4s.jackson.Json
   */
 object PartitionHasher extends Serializable {
     def partitionHash(input: (Int, Int)) = {
-        input._1 * (input._1 + 1) / 2 + 1 + input._2
+        input._1 * (input._1 + 1) / 2 + 1 + input._2 - 1
     }
 
 
     def partitionUnHash(input: Int) = {
         var bucket = 0
-        while (bucket <= input) bucket = bucket * 2 + 1
+        var index = 0
+        var next = 0
+        while (index + bucket <= input) {
+            index = next
+            bucket+= 1
+            next += bucket
+        }
         bucket = bucket - 1
-        (bucket, input - bucket)
+        (bucket, input - index)
     }
 
 }
 
 class PartitionHasher extends Serializable{
     def partitionHash(input: (Int, Int)) = {
-        input._1 * (input._1 + 1) / 2 + 1 + input._2
+        input._1 * (input._1 + 1) / 2 + 1 + input._2 - 1
     }
 
 
     def partitionUnHash(input: Int) = {
         var bucket = 0
-        while (bucket <= input) bucket = bucket * 2 + 1
+        var index = 0
+        var next = 0
+        while (index + bucket <= input) {
+            index = next
+            bucket+= 1
+            next += bucket
+        }
         bucket = bucket - 1
-        (bucket, input - bucket)
+        (bucket, input - index)
     }
 }
 
