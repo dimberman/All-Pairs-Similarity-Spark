@@ -34,7 +34,8 @@ object Main {
         val par = sc.textFile(args(0))
         println(s"taking in from ${args(0)}")
         println(s"default par: ${sc.defaultParallelism}")
-        val executionValues = List(0.9)
+        val executionValues = List(0.5,0.7,0.8,0.9)
+        val buckets = List(3,10,20)
         val vecs = par.map((new TweetToVectorConverter).convertTweetToVector)
         val staticPartitioningValues = ArrayBuffer[Long]()
         val dynamicPartitioningValues = ArrayBuffer[Long]()
@@ -42,10 +43,12 @@ object Main {
 
 
         val driver = new PSSDriver
-        for (i <- executionValues) {
-            val threshold = i
+
+
+        for (i <- buckets) {
+            val threshold = .9
             val t1 = System.currentTimeMillis()
-            val answer = driver.run(sc, vecs, 41, threshold).persist()
+            val answer = driver.run(sc, vecs, i, threshold).persist()
             answer.count()
             val current = System.currentTimeMillis() - t1
             log.info(s"breakdown: apss with threshold $threshold took ${current / 1000} seconds")
@@ -57,6 +60,22 @@ object Main {
             timings.append(current/1000)
             answer.unpersist()
         }
+
+//        for (i <- executionValues) {
+//            val threshold = i
+//            val t1 = System.currentTimeMillis()
+//            val answer = driver.run(sc, vecs, 63, threshold).persist()
+//            answer.count()
+//            val current = System.currentTimeMillis() - t1
+//            log.info(s"breakdown: apss with threshold $threshold took ${current / 1000} seconds")
+//            val top = answer.map{case(i,j,sim) => Sim(i,j,sim)}.top(10)
+//            println("breakdown: top 10 similarities")
+//            top.foreach(s => println(s"breakdown: $s"))
+//            staticPartitioningValues.append(driver.sParReduction)
+//            dynamicPartitioningValues.append(driver.dParReduction)
+//            timings.append(current/1000)
+//            answer.unpersist()
+//        }
 
         val numPairs = driver.numVectors*driver.numVectors/2
         log.info("breakdown:")

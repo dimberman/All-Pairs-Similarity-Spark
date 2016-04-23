@@ -14,7 +14,7 @@ import java.util
   */
 
 
-object HoldensPartitioner extends Serializable {
+object StaticPartitioner extends Serializable {
     def l1Norm(v: SparseVector) = {
         v.values.map(math.abs).sum
     }
@@ -33,7 +33,7 @@ object HoldensPartitioner extends Serializable {
     def normalizeVectors(vecs: RDD[SparseVector]): RDD[SparseVector] = {
         vecs.map {
             vec =>
-                val normalizer = HoldensPartitioner.normalizer(vec)
+                val normalizer = StaticPartitioner.normalizer(vec)
                 for (i <- vec.values.indices) vec.values(i) = vec.values(i) / normalizer
                 new SparseVector(vec.size, vec.indices, vec.values)
         }

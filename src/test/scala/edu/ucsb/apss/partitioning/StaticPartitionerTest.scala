@@ -8,10 +8,10 @@ import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 /**
   * Created by dimberman on 12/10/15.
   */
-class HoldensPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter {
+class StaticPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter {
     import edu.ucsb.apss.util.PartitionUtil._
 
-    val partitioner = HoldensPartitioner
+    val partitioner = StaticPartitioner
 
     val sc = Context.sc
     val n = 4

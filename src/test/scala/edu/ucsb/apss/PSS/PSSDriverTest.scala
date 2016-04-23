@@ -1,7 +1,7 @@
 package edu.ucsb.apss.PSS
 
 import edu.ucsb.apss.{Sim, Context}
-import edu.ucsb.apss.partitioning.HoldensPartitioner
+import edu.ucsb.apss.partitioning.StaticPartitioner
 import edu.ucsb.apss.preprocessing.TweetToVectorConverter
 import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
 import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
@@ -51,7 +51,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val converter = new TweetToVectorConverter
         val vecs =   par.map(converter.convertTweetToVector)
         val answer = driver.run(sc, vecs, 41, 0.9)
-        answer.map{case(i,j,s) => Sim(i,j,s)}.top(10).foreach(println)
+        answer.map{case(i,j,s) => Sim(i,j,s)}.foreach(println)
 
 
         //        val answer = driver.run(sc, vecs, 1, 0)
