@@ -122,7 +122,7 @@ object InvertedIndex {
 
 
 
-    def extractIndexMaFromSimple(i: SimpleInvertedIndex): Map[Long, Int] = {
+    def extractIndexMapFromSimple(i: SimpleInvertedIndex): Map[Long, Int] = {
         i.indices.values.map(a => a.map(_.id)).reduce(_ ++ _).distinct.zipWithIndex.toMap
     }
 }

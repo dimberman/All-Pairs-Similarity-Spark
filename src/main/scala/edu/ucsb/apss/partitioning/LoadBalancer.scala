@@ -1,14 +1,21 @@
 package edu.ucsb.apss.partitioning
 
-import scala.collection.mutable.{Set => MSet, Map => MMap, ListBuffer, ArrayBuffer}
+import scala.collection.mutable.{Set => MSet, Map => MMap, ListBuffer => MList, ArrayBuffer}
+import scala.util.control.Breaks
+
+import scala.util.control.Breaks._
 
 /**
   * Created by dimberman on 4/19/16.
   */
 
 
+
+
+
 object LoadBalancer extends Serializable {
     type Key = (Int, Int)
+    val stage2 = false
 
     def assignByBucket(bucket: Int, tiedLeader: Int, numBuckets: Int, neededVecs: Array[(Int, Int)]): List[(Int, Int)] = {
         numBuckets % 2 match {
@@ -33,7 +40,6 @@ object LoadBalancer extends Serializable {
                     modded.map(neededVecs(_)).filter(isCandidate((bucket, tiedLeader), _))
                 }
         }
-
     }
 
 
@@ -49,15 +55,16 @@ object LoadBalancer extends Serializable {
       */
 
 
-
-    def balance(input: Map[Key, List[Key]], bucketSizes: Map[Key, Int]):Map[Key, List[Key]] = {
+    def balance(input: Map[Key, List[Key]], bucketSizes: Map[Key, Int], options:(Boolean,Boolean)): Map[Key, List[Key]] = {
+        val (s1,s2) = options
         val inp = MMap() ++ input.mapValues(MSet() ++ _.toSet).map(identity)
-        balance(inp, bucketSizes).mapValues(_.toList).toMap
-
+        val stage1 = if(s1) initialLoadAssignment(inp, bucketSizes) else inp
+        val balanced = if (s2) loadAssignmentRefinement(stage1, bucketSizes) else stage1
+        balanced.mapValues(_.toList).toMap
     }
 
 
-    def balance(input: MMap[Key, MSet[Key]], bucketSizes: Map[Key, Int]):MMap[Key, MSet[Key]] = {
+    def initialLoadAssignment(input: MMap[Key, MSet[Key]], bucketSizes: Map[Key, Int]): MMap[Key, MSet[Key]] = {
         val answer: MMap[Key, MSet[Key]] = MMap()
         while (input.nonEmpty) {
             val costMap = input.map(calculateCost(_, bucketSizes))
@@ -73,6 +80,46 @@ object LoadBalancer extends Serializable {
             }
         }
         answer
+    }
+
+
+    def loadAssignmentRefinement(input: MMap[Key, MSet[Key]], bucketSizes: Map[Key, Int]): MMap[Key, MSet[Key]] = {
+        var reduceable = true
+        val outerLoop = new Breaks
+        val loop = new Breaks
+
+
+        outerLoop.breakable {
+            while (reduceable) {
+                reduceable = false
+                val costs = MMap() ++ input.map(calculateCost(_, bucketSizes))
+                val orderedCosts = costs.toList.sortBy(-_._2)
+                loop.breakable {
+                    orderedCosts.foreach {
+                        case (k, v) =>
+                            val c = bucketSizes(k)
+                            var ic = v
+                            val internalCosts = input(k).toList.map(x => (x, c * bucketSizes(x))).sortBy(_._2)
+                            internalCosts.foreach {
+                                case (f, h) =>
+                                    if (costs(f) + h < ic) {
+                                        costs(f) = costs(f) + h
+                                        ic -= h
+                                        input(k) -= f
+                                        input(f) += k
+                                        reduceable = true
+                                        loop.break
+                                    }
+                            }
+                    }
+                }
+            }
+        }
+
+
+
+
+        input
     }
 
 

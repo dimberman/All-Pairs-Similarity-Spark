@@ -27,6 +27,9 @@ libraryDependencies += "amplab" % "spark-indexedrdd" % "0.3"
 
 libraryDependencies += "com.amazonaws" % "aws-java-sdk" % "1.0.002"
 
+libraryDependencies += "com.github.scopt" % "scopt_2.10" % "3.3.0"
+
+
 //libraryDependencies += "com.typesafe.play" % "play_2.10" % "2.4.6"
 
 assemblyJarName in assembly := s"apss-${version.value}.jar"
@@ -34,6 +37,7 @@ assemblyJarName in assembly := s"apss-${version.value}.jar"
 mainClass in assembly := Some("edu.ucsb.apss.Main")
 
 
+resolvers += Resolver.sonatypeRepo("public")
 
 
 assemblyOption in assembly :=

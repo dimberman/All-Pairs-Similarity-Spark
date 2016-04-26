@@ -93,15 +93,6 @@ object StaticPartitioner extends Serializable {
             case (i) =>
                 val idealMap:MMap[(Int,Int), Double] = MMap()
 
-                def getIdeal(key:(Int,Int), vectorA:SparseVector, vectorB:SparseVector):Double = {
-                    if(idealMap.contains(key)) idealMap(key)
-                    else{
-                        val ans = PartitionUtil.dotProduct(vectorA, vectorB)
-                        idealMap+=(key -> ans)
-                        ans
-                    }
-
-                }
                 i.map {
                     case (bucket, norms) =>
                         val tmax = threshold / norms
@@ -112,9 +103,9 @@ object StaticPartitioner extends Serializable {
                             while (res < bucket && tmax > leaders(res)._2) {
                                 res += 1
                             }
-                            while (res < bucket && getIdeal((bucket,res),idealVectors(bucket)._2, idealVectors(res)._2) < threshold) {
-                                res += 1
-                            }
+//                            while (res < bucket && getIdeal((bucket,res),idealVectors(bucket)._2, idealVectors(res)._2) < threshold) {
+//                                res += 1
+//                            }
                         }
                         res - 1
                 }
@@ -130,6 +121,14 @@ object StaticPartitioner extends Serializable {
         ret
     }
 
+    def getIdeal(key:(Int,Int), vectorA:SparseVector, vectorB:SparseVector,idealMap:MMap[(Int,Int), Double]):Double = {
+        if(idealMap.contains(key)) idealMap(key)
+        else{
+            val ans = PartitionUtil.dotProduct(vectorA, vectorB)
+            idealMap+=(key -> ans)
+            ans
+        }
+    }
 
 }
 

@@ -39,12 +39,11 @@ object PartitionUtil extends Serializable {
         anorm = math.sqrt(v1.values.map(x => x * x).sum)
         bnorm = math.sqrt(v2.values.map(x => x * x).sum)
 
-        val answer = sum / (anorm*bnorm)
+        val answer = sum / (anorm * bnorm)
         //        val answer =  sum/(math.sqrt(anorm)* math.sqrt(bnorm))
 
 
-        //        if (answer < 1.0)
-        //            println(s"ideal similarity: $answer")
+        println(s"ideal similarity: $answer")
         //        sum /(normalizer(v1)*normalizer(v2))
         answer
     }
