@@ -53,6 +53,11 @@ object Main {
               } text "number of layers in PSS, defaults to 21"
         }
 
+        opts.parse(args,PSSConfig()) foreach {
+            case conf =>
+                 run(conf)
+        }
+
 
     }
 
@@ -107,5 +112,6 @@ object Main {
         log.info("breakdown:dynamic," + dynamicPartitioningValues.foldRight("")((a, b) => a + "," + b))
         log.info("breakdown:timing," + timings.foldRight("")((a, b) => a + "," + b))
     }
+
 
 }

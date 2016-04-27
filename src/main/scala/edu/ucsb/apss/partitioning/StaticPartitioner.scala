@@ -1,8 +1,8 @@
 package edu.ucsb.apss.partitioning
 
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
-import edu.ucsb.apss.util.{VectorWithNorms, PartitionUtil, VectorWithIndex}
-import org.apache.spark.{Accumulator, RangePartitioner, SparkContext}
+import edu.ucsb.apss.util.{PartitionUtil, VectorWithIndex}
+import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 import scala.collection.mutable.{Map => MMap}
@@ -53,7 +53,6 @@ object StaticPartitioner extends Serializable {
 
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): Array[(Int, Double)] = {
         val answer = r.map { case (k, v) => (k, v.l1) }.reduceByKey((a, b) => math.max(a, b)).collect().sortBy(_._1)
-//        answer.foreach(println)
         answer
     }
 
@@ -103,7 +102,7 @@ object StaticPartitioner extends Serializable {
                             while (res < bucket && tmax > leaders(res)._2) {
                                 res += 1
                             }
-//                            while (res < bucket && getIdeal((bucket,res),idealVectors(bucket)._2, idealVectors(res)._2) < threshold) {
+//                            while (res < bucket && getIdeal((bucket,res),idealVectors(bucket)._2, idealVectors(res)._2, idealMap) < threshold) {
 //                                res += 1
 //                            }
                         }

@@ -17,7 +17,7 @@ import org.apache.log4j.Logger
 import scala.collection.mutable.{HashMap => MMap}
 
 
-import scala.collection.mutable.{ArrayBuffer}
+import scala.collection.mutable.ArrayBuffer
 
 
 /**
@@ -30,7 +30,7 @@ class PSSDriver(loadBalance:(Boolean,Boolean) = (true,true)) {
     import edu.ucsb.apss.util.PartitionUtil._
     import StaticPartitioner._
 
-    var debugPSS = false
+    var debugPSS = true
     val partitioner = StaticPartitioner
     //    @transient lazy val log = Logger.getLogger(getClass.getName)
     val log = Logger.getLogger(getClass.getName)
@@ -47,34 +47,21 @@ class PSSDriver(loadBalance:(Boolean,Boolean) = (true,true)) {
 
     type BucketizedVector = ((Int, Int), VectorWithNorms)
 
-    def bucketizeVectors(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double): RDD[((Int, Int), VectorWithNorms)] = {
-        //        sContext = sc
-        val count = vectors.count
-        numVectors = count
-        val normalizedVectors = vectors.repartition(numBuckets).map(normalizeVector)
-        val indexednVecs = recordIndex(normalizedVectors)
-        val l1partitionedVectors = partitionByL1Sort(indexednVecs, numBuckets, count).mapValues(extractUsefulInfo)
-
-        if (debugPSS) bucketSizes = l1partitionedVectors.countByKey().toList.sortBy(_._1).map(_._2.toInt)
-
-        val bucketLeaders = determineBucketLeaders(l1partitionedVectors)
-        partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
-    }
 
 
     def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true) = {
         debugPSS = debug
-        val bucketizedVectors: RDD[BucketizedVector] = bucketizeVectors(sc, vectors, numBuckets, threshold)
-
-        bucketizedVectorSizeMap = bucketizedVectors.countByKey().mapValues(_.toInt).toMap.withDefault(_ => -1)
+        val l1partitionedVectors = bucketizeVectors(sc, vectors, numBuckets, threshold)
+        val staticPartitionedVectors = staticPartition(l1partitionedVectors, threshold, sc)
+        bucketizedVectorSizeMap = staticPartitionedVectors.countByKey().mapValues(_.toInt).toMap.withDefault(_ => -1)
         val manager = new FileSystemManager
 
-//        if (debugPSS) logStaticPartitioning(bucketizedVectors, threshold, numBuckets)
+        if (debugPSS) logStaticPartitioning(staticPartitionedVectors, threshold, numBuckets)
 
-        val invertedIndexes = generateSplitInvertedIndexes(bucketizedVectors, 100)
+        val invertedIndexes = generateSplitInvertedIndexes(staticPartitionedVectors, 100)
 
 
-        manager.writePartitionsToFile(bucketizedVectors)
+        manager.writePartitionsToFile(staticPartitionedVectors)
 
         //        manager.writeInvertedIndexesToFile(invertedIndexes)
 
@@ -82,10 +69,23 @@ class PSSDriver(loadBalance:(Boolean,Boolean) = (true,true)) {
     }
 
 
-    def pullKey(a: (Int, Int)) = (a._1 * (a._1 + 1)) / 2 + a._2
+    def bucketizeVectors(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double): RDD[(Int, VectorWithNorms)] = {
+        val count = vectors.count
+        numVectors = count
+        val normalizedVectors = vectors.repartition(numBuckets).map(normalizeVector)
+        val indexednVecs = recordIndex(normalizedVectors)
+        val l1partitionedVectors = partitionByL1Sort(indexednVecs, numBuckets, count).mapValues(extractUsefulInfo)
+        if (debugPSS) bucketSizes = l1partitionedVectors.countByKey().toList.sortBy(_._1).map(_._2.toInt)
+        l1partitionedVectors
+    }
+
+    def staticPartition(l1partitionedVectors:RDD[(Int,VectorWithNorms)], threshold:Double, sc:SparkContext) = {
+        val bucketLeaders = determineBucketLeaders(l1partitionedVectors)
+        partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
+    }
 
 
-    type Split = (Int, Int)
+
 
     def calculateCosineSimilarityByPullingFromFile(invertedIndexes: RDD[((Int, Int), Iterable[SimpleInvertedIndex])], threshold: Double, numBuckets: Int, calcSize: Int = 100): RDD[(Long, Long, Double)] = {
         //        log.info(s"num partitions: ${partitionedTasks.partitions.length}")
@@ -101,43 +101,38 @@ class PSSDriver(loadBalance:(Boolean,Boolean) = (true,true)) {
 
 
         val manager = new FileSystemManager
-
-
-
         val unbalanced = buckets.map { case (b, t) => ((b, t), LoadBalancer.assignByBucket(b, t, numBuckets, neededVecs)) }.toMap
-
-
-        val unbalancedPairs = unbalanced.mapValues(_.size)
-
-//        val balancedMapping = unbalanced
         val balancedMapping = LoadBalancer.balance(unbalanced, bucketizedVectorSizeMap, loadBalance)
 
+
+
+
         val balancedPairs = balancedMapping.mapValues(_.size).map(identity)
-
-        //        val pairs = buckets.map { case (b, t) => ((b, t), LoadBalancer.assignByBucket(b, t, numBuckets, neededVecs).size) }.toMap
-
 //        log.info("breakdown: pre-load balancing")
 //        unbalancedPairs.foreach { case (k, v) => log.info(s"breakdown: $k: $v") }
 //
 //        log.info("breakdown: post-load balancing")
 //        balancedPairs.foreach { case (k, v) => log.info(s"breakdown: $k: $v") }
+
+
         val sc = invertedIndexes.context
 
+        val partMap = LoadBalancer.balanceByPartition(21, balancedMapping, bucketizedVectorSizeMap)
 
-        val balancedInvertedIndexes = invertedIndexes.flatMap {
+        val balancedInvertedIndexes = invertedIndexes.map {
             case (bucket, inv) =>
 //                if (balancedPairs(bucket) > 11) {
 //                    partnum += 2
 //                    List((bucket._1, (bucket, inv, (0, 2))), (numBuckets - bucket._1, (bucket, inv, (1, 2))))
 //                }
 //                else {
-                    List((PartitionHasher.partitionHash(bucket), (bucket, inv, (0, 1))))
+                    (partMap(bucket), (bucket, inv, (0, 1)))
 //                }
-        }.persist()
+        }.repartition(21)
 
 
-        balancedInvertedIndexes.count()
-        balancedInvertedIndexes.repartition(balancedInvertedIndexes.keys.count().toInt)
+//        balancedInvertedIndexes.count()
+//        val pssInput = balancedInvertedIndexes.repartition(numBuckets)
 
 
         val BVConf = sc.broadcast(new SerializableWritable(sc.hadoopConfiguration))
@@ -300,25 +295,25 @@ class PSSDriver(loadBalance:(Boolean,Boolean) = (true,true)) {
         val total = skippedPairs + keptPairs
 
         tot = total
-        log.info("breakdown: *******************************************************")
-        log.info("breakdown: bucket breakdown:")
-
-        breakdown.toList.map { case ((b, t), v) =>
-            var nvec = 0
-            for (i <- 0 to b) nvec += bucketSizes(i)
-            if (b == t) {
-                ((b, t), (0, nvec))
-            }
-            else {
-                var nvecSkipped = 0
-                for (i <- 0 to t) nvecSkipped += bucketSizes(i)
-                ((b, t), (nvecSkipped, nvec))
-
-            }
-        }.sortBy(_._1).foreach {
-            case (k, (v, n)) =>
-                log.info(s"breakdown: $k: $n vectors. $v skipped")
-        }
+//        log.info("breakdown: *******************************************************")
+//        log.info("breakdown: bucket breakdown:")
+//
+//        breakdown.toList.map { case ((b, t), v) =>
+//            var nvec = 0
+//            for (i <- 0 to b) nvec += bucketSizes(i)
+//            if (b == t) {
+//                ((b, t), (0, nvec))
+//            }
+//            else {
+//                var nvecSkipped = 0
+//                for (i <- 0 to t) nvecSkipped += bucketSizes(i)
+//                ((b, t), (nvecSkipped, nvec))
+//
+//            }
+//        }.sortBy(_._1).foreach {
+//            case (k, (v, n)) =>
+//                log.info(s"breakdown: $k: $n vectors. $v skipped")
+//        }
         log.info("breakdown: ")
         log.info("breakdown: ")
 
@@ -326,7 +321,7 @@ class PSSDriver(loadBalance:(Boolean,Boolean) = (true,true)) {
 
 
     def logDynamicPartitioningOutput(skipped: Accumulator[Long], reduced: Accumulator[Long], all: Accumulator[Long], manager: FileSystemManager, sc: SparkContext, BVConf: Broadcast[SerializableWritable[Configuration]], driverAccum: Accumulable[ArrayBuffer[DebugVal], DebugVal], similarities: RDD[Similarity]) = {
-        log.info(driverAccum.value.sortBy(_.numPairs).map(d => s"breakdown: partition ${d.key} took ${d.time} seconds to calculate ${d.numPairs} pairs from ${d.numBuckets} buckets").mkString("\n"))
+//        log.info(driverAccum.value.sortBy(_.numPairs).map(d => s"breakdown: partition ${d.key} took ${d.time} seconds to calculate ${d.numPairs} pairs from ${d.numBuckets} buckets").mkString("\n"))
 
         log.info("breakdown: *******************************************************")
         log.info("breakdown: dynamic partitioning:")

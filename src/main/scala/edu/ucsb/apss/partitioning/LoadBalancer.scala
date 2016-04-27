@@ -9,8 +9,9 @@ import scala.util.control.Breaks._
   * Created by dimberman on 4/19/16.
   */
 
-
-
+object MinOrder extends Ordering[(Int,Int)] {
+    def compare(x: (Int,Int), y: (Int,Int)) = y._2 compare x._2
+}
 
 
 object LoadBalancer extends Serializable {
@@ -55,11 +56,20 @@ object LoadBalancer extends Serializable {
       */
 
 
-    def balance(input: Map[Key, List[Key]], bucketSizes: Map[Key, Int], options:(Boolean,Boolean)): Map[Key, List[Key]] = {
-        val (s1,s2) = options
+    def balance(input: Map[Key, List[Key]], bucketSizes: Map[Key, Int], options: (Boolean, Boolean)): Map[Key, List[Key]] = {
+        val (s1, s2) = options
         val inp = MMap() ++ input.mapValues(MSet() ++ _.toSet).map(identity)
-        val stage1 = if(s1) initialLoadAssignment(inp, bucketSizes) else inp
+        val initialCost = inp.values.toList.map(_.size).sum
+        println(s"initial cost: $initialCost")
+        val stage1 = if (s1) initialLoadAssignment(inp, bucketSizes) else inp
+        val s1cost = stage1.values.toList.map(_.size).sum
+        println(s"after stage 1 cost: $s1cost")
+
         val balanced = if (s2) loadAssignmentRefinement(stage1, bucketSizes) else stage1
+        val s2cost = balanced.values.toList.map(_.size).sum
+
+        println(s"after stage 2 cost: $s2cost")
+
         balanced.mapValues(_.toList).toMap
     }
 
@@ -115,11 +125,27 @@ object LoadBalancer extends Serializable {
                 }
             }
         }
-
-
-
-
         input
+    }
+
+
+    def balanceByPartition(numPartitions: Int, balancedVectorMap: Map[Key, List[Key]], bucketSizes: Map[Key, Int]): Map[Key, Int] = {
+        val inp = MMap() ++ balancedVectorMap.mapValues(MSet() ++ _.toSet).map(identity)
+        val sortedByCost = inp.map(calculateCost(_, bucketSizes)).toList.sortBy(-_._2)
+        val partitionMap: MMap[Int, Int] = MMap().withDefaultValue(0)
+        val minHeap = scala.collection.mutable.PriorityQueue.empty(MinOrder)
+        val partMap:MMap[Key,Int] = MMap[Key,Int]()
+        for(i <- 0 to numPartitions){
+            minHeap.enqueue((i,0))
+        }
+        sortedByCost.foreach{
+            case(k,v) =>
+                val (lowestPar, lowestVal) = minHeap.dequeue()
+                partMap += (k -> lowestPar)
+                minHeap.enqueue((lowestPar, lowestVal+v))
+        }
+        partMap.toMap
+
     }
 
 
