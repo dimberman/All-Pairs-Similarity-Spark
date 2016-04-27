@@ -1,10 +1,8 @@
 package edu.ucsb.apss.partitioning
 
-import edu.ucsb.apss.VectorWithNorms
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import edu.ucsb.apss.util.{PartitionUtil, VectorWithIndex}
-import edu.ucsb.apss.{BucketAlias, VectorWithNorms}
-import org.apache.spark.{Accumulator, RangePartitioner, SparkContext}
+import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 import scala.collection.mutable.{Map => MMap}
@@ -16,7 +14,7 @@ import java.util
   */
 
 
-object HoldensPartitioner extends Serializable with Partitioner {
+object StaticPartitioner extends Serializable {
     def l1Norm(v: SparseVector) = {
         v.values.map(math.abs).sum
     }
@@ -35,7 +33,7 @@ object HoldensPartitioner extends Serializable with Partitioner {
     def normalizeVectors(vecs: RDD[SparseVector]): RDD[SparseVector] = {
         vecs.map {
             vec =>
-                val normalizer = HoldensPartitioner.normalizer(vec)
+                val normalizer = StaticPartitioner.normalizer(vec)
                 for (i <- vec.values.indices) vec.values(i) = vec.values(i) / normalizer
                 new SparseVector(vec.size, vec.indices, vec.values)
         }
@@ -55,7 +53,6 @@ object HoldensPartitioner extends Serializable with Partitioner {
 
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): Array[(Int, Double)] = {
         val answer = r.map { case (k, v) => (k, v.l1) }.reduceByKey((a, b) => math.max(a, b)).collect().sortBy(_._1)
-        answer.foreach(println)
         answer
     }
 
@@ -88,22 +85,13 @@ object HoldensPartitioner extends Serializable with Partitioner {
     def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, VectorWithNorms)], leaders: Array[(Int, Double)], threshold: Double, sc: SparkContext): RDD[((Int, Int), VectorWithNorms)] = {
         //this step should reduce the amount of data that needs to be shuffled
         val idealVectors = determineIdealVectors(inputVectors)
-        idealVectors.foreach(a => println(s"ideal vectors: $a"))
+//        idealVectors.foreach(a => println(s"ideal vectors: $a"))
         val persistedInputvecs = inputVectors.persist()
         val lInfNormsOnly = persistedInputvecs.mapValues(_.lInf)
         val buckets: RDD[Int] = lInfNormsOnly.mapPartitions {
             case (i) =>
                 val idealMap:MMap[(Int,Int), Double] = MMap()
 
-                def getIdeal(key:(Int,Int), vectorA:SparseVector, vectorB:SparseVector):Double = {
-                    if(idealMap.contains(key)) idealMap(key)
-                    else{
-                        val ans = PartitionUtil.dotProduct(vectorA, vectorB)
-                        idealMap+=(key -> ans)
-                        ans
-                    }
-
-                }
                 i.map {
                     case (bucket, norms) =>
                         val tmax = threshold / norms
@@ -114,9 +102,9 @@ object HoldensPartitioner extends Serializable with Partitioner {
                             while (res < bucket && tmax > leaders(res)._2) {
                                 res += 1
                             }
-                            while (res < bucket && getIdeal((bucket,res),idealVectors(bucket)._2, idealVectors(res)._2) < threshold) {
-                                res += 1
-                            }
+//                            while (res < bucket && getIdeal((bucket,res),idealVectors(bucket)._2, idealVectors(res)._2, idealMap) < threshold) {
+//                                res += 1
+//                            }
                         }
                         res - 1
                 }
@@ -132,6 +120,14 @@ object HoldensPartitioner extends Serializable with Partitioner {
         ret
     }
 
+    def getIdeal(key:(Int,Int), vectorA:SparseVector, vectorB:SparseVector,idealMap:MMap[(Int,Int), Double]):Double = {
+        if(idealMap.contains(key)) idealMap(key)
+        else{
+            val ans = PartitionUtil.dotProduct(vectorA, vectorB)
+            idealMap+=(key -> ans)
+            ans
+        }
+    }
 
 }
 

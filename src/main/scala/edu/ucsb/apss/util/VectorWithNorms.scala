@@ -1,4 +1,4 @@
-package edu.ucsb.apss
+package edu.ucsb.apss.util
 
 import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import org.apache.spark.mllib.linalg.SparseVector
