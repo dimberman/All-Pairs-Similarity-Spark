@@ -1,6 +1,5 @@
 package edu.ucsb.apss.util
 
-import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import org.apache.spark.rdd.RDD
 
 import scala.collection.mutable.ArrayBuffer

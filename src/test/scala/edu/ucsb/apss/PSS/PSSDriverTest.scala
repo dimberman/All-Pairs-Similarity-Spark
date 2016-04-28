@@ -1,6 +1,6 @@
 package edu.ucsb.apss.PSS
 
-import edu.ucsb.apss.Context
+import edu.ucsb.apss.{TestOutputGenerator, Context}
 import edu.ucsb.apss.partitioning.StaticPartitioner
 import edu.ucsb.apss.preprocessing.TweetToVectorConverter
 import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
@@ -12,6 +12,8 @@ import scala.collection.mutable.ArrayBuffer
   * Created by dimberman on 1/18/16.
   */
 class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
+    import edu.ucsb.apss.util.PartitionUtil._
+
     val sc = Context.sc
 
     val driver = new PSSDriver
@@ -45,6 +47,27 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val answer = driver.run(sc, vecs, 5, 0.9)
         val x = answer.collect()
 //        x.foreach(println)
+
+    }
+
+
+
+    it should "contian only correct output" in {
+        val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/4-tweets-bag.txt")
+        val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
+        val expected = e.toMap
+
+        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/4-tweets-bag.txt")
+        val vecs = par.map(BagOfWordToVectorConverter.convert)
+//        val v = vecs.collect()
+//          .map(_.toDense)
+//        v.foreach(println)
+        val answer = driver.run(sc, vecs, 2, 0.0).map{case(x,b,c) => ((x,b),c)}.mapValues(truncateAt(_,2)).collect()
+        answer.foreach{
+            case(i,j) =>
+                println(s"for pair $i, expected: ${expected(i)} got: $j")
+                expected(i) shouldEqual (j +- .01)
+        }
 
     }
 
@@ -103,6 +126,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 //    }
 //
 //
+
 
 
 }

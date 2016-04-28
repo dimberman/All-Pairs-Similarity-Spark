@@ -4,9 +4,7 @@ import java.io.{File, PrintWriter}
 
 
 import edu.ucsb.apss.partitioning.{LoadBalancer, PartitionHasher, StaticPartitioner}
-import edu.ucsb.apss.preprocessing.TweetToVectorConverter
-import edu.ucsb.apss.util.FileSystemManager
-import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
+import edu.ucsb.apss.util.{VectorWithNorms, FileSystemManager}
 import org.apache.log4j.Logger
 import org.apache.spark.{AccumulatorParam, Accumulator, SparkConf, SparkContext}
 import scala.collection.mutable.{Map => MMap, ArrayBuffer}
@@ -32,11 +30,15 @@ object InvertedIndex {
     val log = Logger.getLogger(this.getClass)
 
 
+    def createFeaturePairs(vectorWithNorms: VectorWithNorms): Array[(Int, List[FeaturePair])] = {
+        val VectorWithNorms(_,_,_,vec, index,_) = vectorWithNorms
+        vec.indices.indices.map(i => (vec.indices(i), List(FeaturePair(index, vec.values(i))))).toArray
+    }
 
     def generateSplitInvertedIndexes(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)], invSize: Int): RDD[((Int, Int), Iterable[SimpleInvertedIndex])] = {
 
 
-        val incorrectAccum: Accumulator[ArrayBuffer[String]] = bucketizedVectors.context.accumulator(ArrayBuffer(""))(StringAccumulatorParam)
+//        val incorrectAccum: Accumulator[ArrayBuffer[String]] = bucketizedVectors.context.accumulator(ArrayBuffer(""))(StringAccumulatorParam)
 
 
 
@@ -60,7 +62,7 @@ object InvertedIndex {
     def extractFeaturePairs(vectors: List[VectorWithNorms]): SimpleInvertedIndex = {
         val featurePairs = vectors.map(createFeaturePairs)
         val featureMap = featurePairs.aggregate(MMap[Int, List[FeaturePair]]())(
-            addFeaturePair,
+            addFeaturePairsToMap,
             mergeFeatureMaps
         )
 
@@ -69,7 +71,7 @@ object InvertedIndex {
         SimpleInvertedIndex(x)
     }
 
-    def addFeaturePair(a: MMap[Int, List[FeaturePair]], b: Array[(Int, List[FeaturePair])]): MMap[Int, List[FeaturePair]] = {
+    def addFeaturePairsToMap(a: MMap[Int, List[FeaturePair]], b: Array[(Int, List[FeaturePair])]): MMap[Int, List[FeaturePair]] = {
         b.foreach {
             case (k, v) =>
                 if (a.contains(k)) {
@@ -116,9 +118,6 @@ object InvertedIndex {
     }
 
 
-    def createFeaturePairs(vector: VectorWithNorms): Array[(Int, List[FeaturePair])] = {
-        vector.vector.indices.map(i => (i, List(FeaturePair(vector.index, vector.vector(i)))))
-    }
 
 
 

@@ -1,13 +1,13 @@
 package edu.ucsb.apss.partitioning
 
-import scala.collection.mutable.{Set => MSet, Map => MMap, ListBuffer => MList, ArrayBuffer}
+import scala.collection.mutable.{Set => MSet, Map => MMap}
 import scala.util.control.Breaks
 
-import scala.util.control.Breaks._
 
 /**
   * Created by dimberman on 4/19/16.
   */
+
 
 object MinOrder extends Ordering[(Int,Int)] {
     def compare(x: (Int,Int), y: (Int,Int)) = y._2 compare x._2
@@ -18,12 +18,13 @@ object LoadBalancer extends Serializable {
     type Key = (Int, Int)
     val stage2 = false
 
-    def assignByBucket(bucket: Int, tiedLeader: Int, numBuckets: Int, neededVecs: Array[(Int, Int)]): List[(Int, Int)] = {
+    def assignByIndex(bucket: Int, tiedLeader: Int, numBuckets: Int, neededVecs: Array[(Int, Int)]): List[(Int, Int)] = {
         numBuckets % 2 match {
             case 1 =>
                 val start = neededVecs.indexOf((bucket, tiedLeader))
-                //                val proposedBuckets = List.range(bucket + 1, (bucket + 1) + (numBuckets - 1) / 2) :+ bucket
-                val proposedBuckets = (List.range(start + 1, (start + 1) + (start - 1) / 2).map(_ - neededVecs.length / 2) :+ start).map(a => if (a < 0) a + neededVecs.length else a)
+                val proposedBuckets = (List.range(start + 1, (start + 1) + (start - 1) / 2)
+//                  .map(_ - neededVecs.length / 2)
+                  :+ start).map(a => if (a < 0) a + neededVecs.length else a)
                 val modded = proposedBuckets.map(a => a % neededVecs.size)
                 modded.map(neededVecs(_)).filter(isCandidate((bucket, tiedLeader), _)
 
@@ -42,6 +43,39 @@ object LoadBalancer extends Serializable {
                 }
         }
     }
+
+
+    def assignByBucket(bucket: Int, tiedLeader: Int, numBuckets: Int, neededVecs: Array[(Int, Int)]): List[(Int, Int)] = {
+        numBuckets % 2 match {
+            case 1 =>
+                val start = bucket
+                val proposedBuckets = (List.range(start + 1, (start + 1) + (start - 1) / 2)
+                  //                  .map(_ - neededVecs.length / 2)
+                  :+ start).map(a => if (a < 0) a + numBuckets else a)
+                val modded = proposedBuckets.map(a => a % numBuckets)
+                modded.flatMap(a => neededVecs.filter(b => b._1 == a).filter(c => isCandidate((bucket,tiedLeader), c)))
+//                modded.map(neededVecs(_)).filter(isCandidate((bucket, tiedLeader), _)
+
+
+            case 0 =>
+                if (bucket < numBuckets / 2) {
+                    val e = List.range(bucket + 1, (bucket + 1) + numBuckets / 2).map(_ % numBuckets) :+ bucket
+                    val modded = e.map(a => a % neededVecs.size)
+                    modded.map(neededVecs(_)).filter(isCandidate((bucket, tiedLeader), _))
+                }
+                else {
+                    val x = (bucket + 1) + numBuckets / 2 - 1
+                    val e = List.range(bucket + 1, x).map(_ % numBuckets) :+ bucket
+                    val modded = e.map(a => a % neededVecs.size)
+                    modded.map(neededVecs(_)).filter(isCandidate((bucket, tiedLeader), _))
+                }
+        }
+    }
+
+
+
+
+
 
 
     def isCandidate(a: (Int, Int), b: (Int, Int)): Boolean = {

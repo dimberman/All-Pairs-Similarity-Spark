@@ -1,7 +1,6 @@
 package edu.ucsb.apss.partitioning
 
-import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
-import edu.ucsb.apss.util.{PartitionUtil, VectorWithIndex}
+import edu.ucsb.apss.util.{VectorWithNorms, PartitionUtil, VectorWithIndex}
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
@@ -93,8 +92,8 @@ object StaticPartitioner extends Serializable {
                 val idealMap:MMap[(Int,Int), Double] = MMap()
 
                 i.map {
-                    case (bucket, norms) =>
-                        val tmax = threshold / norms
+                    case (bucket, infNorm) =>
+                        val tmax = threshold / infNorm
                         var res = 0
                         if (tmax < leaders.head._2) res = bucket + 1
                         else if (bucket == 0) res = 1
@@ -102,14 +101,16 @@ object StaticPartitioner extends Serializable {
                             while (res < bucket && tmax > leaders(res)._2) {
                                 res += 1
                             }
-//                            while (res < bucket && getIdeal((bucket,res),idealVectors(bucket)._2, idealVectors(res)._2, idealMap) < threshold) {
-//                                res += 1
-//                            }
+                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket)._2, idealVectors(res)._2, idealMap) < threshold) {
+                                res += 1
+                            }
                         }
                         res - 1
                 }
-
         }
+
+
+
         val ret = persistedInputvecs.zip(buckets).map {
             case ((key, vec), matchedBucket) =>
                 //TODO mutable values would be faster
@@ -120,7 +121,7 @@ object StaticPartitioner extends Serializable {
         ret
     }
 
-    def getIdeal(key:(Int,Int), vectorA:SparseVector, vectorB:SparseVector,idealMap:MMap[(Int,Int), Double]):Double = {
+    def getMaximalSimilarity(key:(Int,Int), vectorA:SparseVector, vectorB:SparseVector, idealMap:MMap[(Int,Int), Double]):Double = {
         if(idealMap.contains(key)) idealMap(key)
         else{
             val ans = PartitionUtil.dotProduct(vectorA, vectorB)

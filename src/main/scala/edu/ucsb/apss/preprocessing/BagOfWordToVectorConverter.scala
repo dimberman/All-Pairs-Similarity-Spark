@@ -3,6 +3,8 @@ package edu.ucsb.apss.tokenization1
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.feature.HashingTF
 import org.apache.spark.mllib.linalg.SparseVector
+import scala.collection.mutable.{Map => MMap}
+
 
 /**
   * Created by dimberman on 12/24/15.
@@ -12,15 +14,17 @@ import org.apache.spark.mllib.linalg.SparseVector
   */
 object BagOfWordToVectorConverter extends Serializable{
     def convert(s: String):SparseVector = {
-        val hash = new HashingTF()
-        val split = s.split(" ").zipWithIndex
-        if (split.length % 2 == 1)
-            println("error")
-        if(split.length==1) return new SparseVector(1048576, Array(), Array())
-        val ind = split.filter(_._2 % 2 == 0).map(_._1.toInt).array
-        val values = split.filter(_._2 % 2 == 1).map(_._1.toDouble).array
 
-        new SparseVector(1048576, ind, values)
+
+        val valMap:MMap[Int,Double] = MMap().withDefaultValue(0.0)
+        for (i <- s.split(" ")){
+            valMap(i.toInt) += 1
+        }
+        val ans = valMap.toArray
+
+
+
+        new SparseVector(ans.length, ans.map(_._1), ans.map(_._2))
     }
 
     def revertToString(v:SparseVector):String = {
