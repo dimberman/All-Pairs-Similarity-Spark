@@ -36,22 +36,26 @@ object Main {
     def main(args: Array[String]) {
 
         val opts = new scopt.OptionParser[PSSConfig]("PSS") {
+
             opt[String]('i', "input")
               .required()
               .action { (x, c) =>
                   c.copy(input = x)
               } text "input is the input file"
+
             opt[Seq[Double]]('t', "threshold")
               .optional()
               .action { (x, c) =>
                   c.copy(thresholds = x)
               } text "threshold is the threshold for PSS, defaults to 0.9"
+
             opt[Int]('n', "numLayers")
               .optional()
               .action { (x, c) =>
                   c.copy(numLayers = x)
               } text "number of layers in PSS, defaults to 21"
         }
+
 
         opts.parse(args,PSSConfig()) foreach {
             case conf =>
@@ -106,12 +110,16 @@ object Main {
         log.info("breakdown:")
         log.info("breakdown: ************histogram******************")
         //        log.info("breakdown:," + buckets.foldRight("")((a,b) => a + "," + b))
-        log.info("breakdown:," + executionValues.foldRight("")((a, b) => a + "," + b))
-        log.info("breakdown:staticPairRemoval," + staticPartitioningValues.foldRight("")((a, b) => a + "," + b))
-        log.info("breakdown:static%reduction," + staticPartitioningValues.map(a => a.toDouble / numPairs).foldRight("")((a, b) => a + "," + b))
+        log.info("breakdown:threshold," + executionValues.mkString(","))
+        log.info("breakdown:staticPairRemoval," + staticPartitioningValues.mkString(","))
+        log.info("breakdown:static%reduction," + staticPartitioningValues.map(a => a.toDouble / numPairs *100).map(truncateAt(_,2)).map(_+"%").mkString(","))
         log.info("breakdown:dynamic," + dynamicPartitioningValues.foldRight("")((a, b) => a + "," + b))
-        log.info("breakdown:timing," + timings.foldRight("")((a, b) => a + "," + b))
+        log.info("breakdown:timing," + timings.mkString(","))
     }
 
+    def truncateAt(n: Double, p: Int): Double = {
+        val s = math pow(10, p);
+        (math floor n * s) / s
+    }
 
 }

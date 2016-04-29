@@ -4,8 +4,7 @@ import java.io.File
 import java.nio.file.{Files, Paths}
 
 import edu.ucsb.apss.Context
-import edu.ucsb.apss.util.FileSystemManager
-import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
+import edu.ucsb.apss.util.{VectorWithNorms, FileSystemManager}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SerializableWritable

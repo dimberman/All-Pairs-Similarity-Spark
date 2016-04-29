@@ -2,7 +2,6 @@ package edu.ucsb.apss.util
 
 import edu.ucsb.apss.InvertedIndex.SimpleInvertedIndex
 import edu.ucsb.apss.partitioning.PartitionHasher
-import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.spark.broadcast.Broadcast

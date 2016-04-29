@@ -1,6 +1,6 @@
 package edu.ucsb.apss.compartmentalize
 
-import edu.ucsb.apss.util.PartitionUtil.VectorWithNorms
+import edu.ucsb.apss.util.VectorWithNorms
 import org.apache.spark.rdd.RDD
 
 import scala.collection.mutable.ArrayBuffer

@@ -1,17 +1,17 @@
 package edu.ucsb.apss.PSS
 
-import edu.ucsb.apss.Context
-import edu.ucsb.apss.partitioning.StaticPartitioner
+import edu.ucsb.apss.{TestOutputGenerator, Context}
 import edu.ucsb.apss.preprocessing.TweetToVectorConverter
 import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
 import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
 
-import scala.collection.mutable.ArrayBuffer
 
 /**
   * Created by dimberman on 1/18/16.
   */
 class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
+    import edu.ucsb.apss.util.PartitionUtil._
+
     val sc = Context.sc
 
     val driver = new PSSDriver
@@ -39,12 +39,33 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
 
     it should "not break when there is a high threshold" in {
-        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/10-tweets-bag.txt")
+        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/101-tweets-bag.txt")
         val converter = new TweetToVectorConverter
         val vecs = par.map(converter.convertTweetToVector)
-        val answer = driver.run(sc, vecs, 5, 0.9)
+        val answer = driver.run(sc, vecs, 3, 0.9)
         val x = answer.collect()
 //        x.foreach(println)
+
+    }
+
+
+
+    it should "contian only correct output" in {
+        val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
+        val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
+        val expected = e.toMap
+
+        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
+        val vecs = par.map(BagOfWordToVectorConverter.convert)
+//        val v = vecs.collect()
+//          .map(_.toDense)
+//        v.foreach(println)
+        val answer = driver.run(sc, vecs, 5, 0.0).map{case(x,b,c) => ((x,b),c)}.mapValues(truncateAt(_,2)).collect()
+        answer.foreach{
+            case(i,j) =>
+//                println(s"for pair $i, expected: ${expected(i)} got: $j")
+                expected(i) shouldEqual (j +- .011)
+        }
 
     }
 
@@ -52,8 +73,8 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
         val converter = new TweetToVectorConverter
         val vecs =   par.map(converter.convertTweetToVector)
-        val answer = driver.run(sc, vecs, 41, 0.9)
-        answer.map{case(i,j,s) => Similarity(i,j,s)}.foreach(println)
+        val answer = driver.run(sc, vecs, 41, 0.5).collect()
+//        answer.map{case(i,j,s) => Similarity(i,j,s)}.foreach(println)
 
 
         //        val answer = driver.run(sc, vecs, 1, 0)
@@ -103,6 +124,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 //    }
 //
 //
+
 
 
 }

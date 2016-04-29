@@ -105,10 +105,7 @@ class StaticPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter {
     }
 
 
-    def truncateAt(n: Double, p: Int): Double = {
-        val s = math pow(10, p);
-        (math floor n * s) / s
-    }
+
 //
     it should "correctly handle the case where there is only one bucket" in {
 
