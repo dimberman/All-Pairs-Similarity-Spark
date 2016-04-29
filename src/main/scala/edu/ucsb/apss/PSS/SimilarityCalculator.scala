@@ -23,5 +23,9 @@ object SimilarityCalculator extends Serializable {
         }
     }
 
-
+    def clearScoreArray(scores:Array[Double]) = {
+        for (l <- scores.indices) {
+            scores(l) = 0
+        }
+    }
 }

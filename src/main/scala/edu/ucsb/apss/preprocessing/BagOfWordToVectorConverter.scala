@@ -16,15 +16,21 @@ object BagOfWordToVectorConverter extends Serializable{
     def convert(s: String):SparseVector = {
 
 
-        val valMap:MMap[Int,Double] = MMap().withDefaultValue(0.0)
-        for (i <- s.split(" ")){
-            valMap(i.toInt) += 1
+        if(s == ""){
+            new SparseVector(0, Array(), Array())
         }
-        val ans = valMap.toArray
+        else {
+            val valMap:MMap[Int,Double] = MMap().withDefaultValue(0.0)
+            for (i <- s.split(" ")){
+                valMap(i.toInt) += 1
+            }
+            val ans = valMap.toArray
 
 
 
-        new SparseVector(ans.length, ans.map(_._1), ans.map(_._2))
+            new SparseVector(ans.length, ans.map(_._1), ans.map(_._2))
+        }
+
     }
 
     def revertToString(v:SparseVector):String = {

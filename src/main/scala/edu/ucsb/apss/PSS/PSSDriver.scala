@@ -54,10 +54,11 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
 
         val optimal = bucketizeVectors(sc, vectors, 1, threshold)
         val l1partitionedVectors = bucketizeVectors(sc, vectors, numBuckets, threshold)
-        val o = optimal.collect()
-        val l = l1partitionedVectors.collect()
-
         val staticPartitionedVectors = staticPartition(l1partitionedVectors, threshold, sc)
+
+
+
+
 
         if (debugPSS)
             logStaticPartitioning(staticPartitionedVectors, threshold, numBuckets)
@@ -75,7 +76,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
     def bucketizeVectors(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double): RDD[(Int, VectorWithNorms)] = {
         val count = vectors.count
         numVectors = count
-        val normalizedVectors = vectors.repartition(numBuckets).map(normalizeVector)
+        val normalizedVectors = vectors.map(normalizeVector)
         val indexednVecs = recordIndex(normalizedVectors)
         val l1partitionedVectors = partitionByL1Sort(indexednVecs, numBuckets, count).mapValues(extractUsefulInfo)
         if (debugPSS) bucketSizes = l1partitionedVectors.countByKey().toList.sortBy(_._1).map(_._2.toInt)
@@ -95,6 +96,24 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
         val buckets = invertedIndexes.filter(_._2.nonEmpty).keys.collect()
         val neededVecs = buckets.sortBy(a => a)
         val unbalanced = buckets.map { case (b, t) => ((b, t), LoadBalancer.assignByBucket(b, t, numBuckets, neededVecs)) }.toMap
+        val comparisonList = unbalanced.map {
+            case (k, v) =>
+                v.map(
+                    a =>
+                        if (a != k)
+                            bucketizedVectorSizeMap(a) * bucketizedVectorSizeMap(k)
+                        else
+                            bucketizedVectorSizeMap(a) * (bucketizedVectorSizeMap(k) - 1) / 2
+                )
+        }
+        val numComparisons = comparisonList.map(_.sum).sum
+        val b = bucketSizes
+
+        log.info("breakdown: after duplicate removal skip %: " + truncateAt(((numVectors * (numVectors-1) / 2) - numComparisons.toDouble) / (numVectors * (numVectors-1) / 2) * 100, 2) + "%")
+
+
+
+
         val balancedMapping = LoadBalancer.balance(unbalanced, bucketizedVectorSizeMap, loadBalance)
         val balancedPairs = balancedMapping.mapValues(_.size).map(identity)
         balancedMapping
@@ -149,40 +168,18 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
         val driverAccum = invertedIndexes.context.accumulable(ArrayBuffer[DebugVal](), "debug info")(DebugAcummulatorParam)
 
 
-        //        val calculatedInvertedIndexes = invertedIndexes.mapPartitionsWithIndex(
-        //            (index, iter) => {
-        //                val buckets = ArrayBuffer[(Int,Int)]()
-        //                iter.foreach {
-        //                    case (bucket, inv) =>
-        //                        buckets += bucket
-        //
-        //                }
-        //                buckAccum += s"breakdown: ${buckets.mkString(",")} are all in partition $index"
-        //                iter
-        //            }
-        //        )
 
 
         log.info(buckAccum.value)
 
         val similarities: RDD[Similarity] = balancedInvertedIndexes.values.flatMap {
-            //        val similarities: RDD[Similarity] = invertedIndexes. flatMap {
             case (((bucket, tl), invIter, (ind, mod))) =>
-                //                case (((bucket, tl), invIter)) =>
                 val manager = new FileSystemManager
-                //                val get = List().toIterator
-
                 var numVecPair = 0
                 val start = System.currentTimeMillis()
-                //                val get = LoadBalancer.assignByBucket(bucket, tl, numBuckets, neededVecs)
-                //                val filtered = get.filter(neededVecs.contains)
                 val filtered = BVPairs.value((bucket, tl))
                 val numBuc = filtered.size
-                //                println(s"breakdown: assignment ${get.mkString(",")}")
-
-                //                val answer = new ArrayBuffer[Similarity]()
                 val answer = new BoundedPriorityQueue[Similarity](1000)
-
                 filtered.foreach {
                     case (key) =>
                         val externalVectors = manager.readVecPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.map(_._1)
@@ -195,7 +192,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
                                     case v_j =>
                                         val VectorWithNorms(_, _, _, vec, ind_j, _) = v_j
 
-                                        calculateScores(vec,invertedIndex,indexMap, scores)
+                                        calculateScores(vec, invertedIndex, indexMap, scores)
 
                                         indexMap.foreach {
                                             case (ind_i, l) =>
@@ -237,14 +234,13 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
     }
 
 
-
     def logStaticPartitioning(bucketizedVectors: RDD[BucketizedVector], threshold: Double, numBuckets: Int): Unit = {
         //        var skipped: Long = 0
 
         val bv = bucketizedVectors.collect()
         val breakdown = bucketizedVectors.countByKey()
         //        breakdown.foreach { case (k, v) => skipped += k._2 * bucketSize * v }
-        bucketSizes.foreach(b => println("bucket size: " + b))
+        //        bucketSizes.foreach(b => println("bucket size: " + b))
         log.info("breakdown: *******************************************************")
         log.info("breakdown: *******************************************************")
         log.info(s"breakdown: ******** computing PSS with a threshold of $threshold ********")
@@ -259,50 +255,52 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
                 }
                 else {
                     var nvec = 0
-                    for (i <- 0 to t) nvec += v.toInt * bucketSizes(i)
+                    for (i <- 0 to t) nvec += v.toInt * (bucketSizes(i) - bucketizedVectorSizeMap((i,i)))
                     ((b, t), nvec)
                 }
         }.map(a => a._2).sum
-        println(numBuckets)
-        val keptPairs = breakdown.toList.map {
-            case ((b, t), v) =>
-                var nvec = 0
-                for (i <- t + 1 to b) nvec += v.toInt * bucketSizes(i)
-                ((b, t), nvec)
-        }.map(a => a._2).sum
+        //        println(numBuckets)
+        //        val keptPairs = breakdown.toList.map {
+        //            case ((b, t), v) =>
+        //                var nvec = 0
+        //                for (i <- t + 1 to b) nvec += v.toInt * bucketSizes(i)
+        //                ((b, t), nvec)
+        //        }.map(a => a._2).sum
         log.info("breakdown: *******************************************************")
 
         log.info(s"breakdown: static partitioning:")
 
-        log.info(s"breakdown: skipped pairs: $skippedPairs")
-        log.info(s"breakdown: kept pairs: $keptPairs")
-        log.info(s"breakdown: ${(numVecs * numVecs) / 2 - keptPairs - skippedPairs + 10000} unnacounted for")
+        log.info(s"breakdown: expected skipped pairs: $skippedPairs")
+        log.info("breakdown: expected skipped pair %: " + truncateAt(skippedPairs.toDouble / (numVectors * (numVectors-1) / 2) * 100, 2) + "%")
+
+        //        log.info(s"breakdown: kept pairs: $keptPairs")
+        //        log.info(s"breakdown: ${(numVecs * numVecs) / 2 - keptPairs - skippedPairs + 10000} unnacounted for")
         sPar = skippedPairs
 
-        val total = skippedPairs + keptPairs
+        //        val total = skippedPairs + keptPairs
 
-        tot = total
+        //        tot = total
         //        log.info("breakdown: *******************************************************")
-        //        log.info("breakdown: bucket breakdown:")
-        //
-        //        breakdown.toList.map { case ((b, t), v) =>
-        //            var nvec = 0
-        //            for (i <- 0 to b) nvec += bucketSizes(i)
-        //            if (b == t) {
-        //                ((b, t), (0, nvec))
-        //            }
-        //            else {
-        //                var nvecSkipped = 0
-        //                for (i <- 0 to t) nvecSkipped += bucketSizes(i)
-        //                ((b, t), (nvecSkipped, nvec))
-        //
-        //            }
-        //        }.sortBy(_._1).foreach {
-        //            case (k, (v, n)) =>
-        //                log.info(s"breakdown: $k: $n vectors. $v skipped")
-        //        }
-        log.info("breakdown: ")
-        log.info("breakdown: ")
+                log.info("breakdown: bucket breakdown:")
+
+                breakdown.toList.map { case ((b, t), v) =>
+                    var nvec = 0
+                    for (i <- 0 to b) nvec += bucketSizes(i)
+                    if (b == t) {
+                        ((b, t), (0, nvec))
+                    }
+                    else {
+                        var nvecSkipped = 0
+                        for (i <- 0 to t) nvecSkipped += bucketSizes(i)
+                        ((b, t), (nvecSkipped, nvec))
+
+                    }
+                }.sortBy(_._1).foreach {
+                    case (k, (v, n)) =>
+                        log.info(s"breakdown: $k: $n vectors. $v skipped")
+                }
+//                log.info("breakdown: ")
+        //        log.info("breakdown: ")
 
     }
 
@@ -323,8 +321,8 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
         //        log.info("breakdown: index vecs " + indx.value)
         log.info("breakdown: " + (postStaticPartitioningPairs.value - skipped.value - reduced.value) + " values unaccounted for")
 
-        log.info("breakdown:staticPairRemoval," + sParReduction)
-        log.info("breakdown:static%reduction," + sParReduction.toDouble / (numVectors * numVectors / 2))
+        log.info("breakdown: staticPairRemoval," + sParReduction)
+        log.info("breakdown: skipped pair %: " + truncateAt(sParReduction.toDouble / (numVectors * (numVectors-1) / 2) * 100, 2) + "%")
 
     }
 }

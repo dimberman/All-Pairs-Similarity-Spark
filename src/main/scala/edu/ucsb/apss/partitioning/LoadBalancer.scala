@@ -49,11 +49,13 @@ object LoadBalancer extends Serializable {
         numBuckets % 2 match {
             case 1 =>
                 val start = bucket
-                val proposedBuckets = (List.range(start + 1, (start + 1) + (start - 1) / 2)
+                val proposedBuckets = (List.range(start + 1, (start + 1) + (numBuckets - 1) / 2)
                   //                  .map(_ - neededVecs.length / 2)
                   :+ start).map(a => if (a < 0) a + numBuckets else a)
                 val modded = proposedBuckets.map(a => a % numBuckets)
-                modded.flatMap(a => neededVecs.filter(b => b._1 == a).filter(c => isCandidate((bucket,tiedLeader), c)))
+                modded.flatMap(a => neededVecs.filter(b => b._1 == a)
+                  .filter(c => isCandidate((bucket,tiedLeader), c))
+                )
 //                modded.map(neededVecs(_)).filter(isCandidate((bucket, tiedLeader), _)
 
 
@@ -94,15 +96,15 @@ object LoadBalancer extends Serializable {
         val (s1, s2) = options
         val inp = MMap() ++ input.mapValues(MSet() ++ _.toSet).map(identity)
         val initialCost = inp.values.toList.map(_.size).sum
-        println(s"initial cost: $initialCost")
+//        println(s"initial cost: $initialCost")
         val stage1 = if (s1) initialLoadAssignment(inp, bucketSizes) else inp
         val s1cost = stage1.values.toList.map(_.size).sum
-        println(s"after stage 1 cost: $s1cost")
+//        println(s"after stage 1 cost: $s1cost")
 
         val balanced = if (s2) loadAssignmentRefinement(stage1, bucketSizes) else stage1
         val s2cost = balanced.values.toList.map(_.size).sum
 
-        println(s"after stage 2 cost: $s2cost")
+//        println(s"after stage 2 cost: $s2cost")
 
         balanced.mapValues(_.toList).toMap
     }

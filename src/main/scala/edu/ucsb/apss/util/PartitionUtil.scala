@@ -44,7 +44,6 @@ object PartitionUtil extends Serializable {
     }
 
     def normalizeVector(vec: SparseVector): SparseVector = {
-
         val norm = normalizer(vec)
         for (i <- vec.values.indices) vec.values(i) = vec.values(i) / norm
         new SparseVector(vec.size, vec.indices, vec.values)
@@ -64,11 +63,7 @@ object PartitionUtil extends Serializable {
         (math floor n * s) / s
     }
 
-    def clearScoreArray(scores:Array[Double]) = {
-        for (l <- scores.indices) {
-            scores(l) = 0
-        }
-    }
+
 }
 
 case class VectorWithIndex(vec: SparseVector, index: Long)
