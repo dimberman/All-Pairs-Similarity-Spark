@@ -39,7 +39,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
 
     it should "not break when there is a high threshold" in {
-        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/101-tweets-bag.txt")
+        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
         val converter = new TweetToVectorConverter
         val vecs = par.map(converter.convertTweetToVector)
         val answer = driver.run(sc, vecs, 3, 0.9)
@@ -73,7 +73,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
         val converter = new TweetToVectorConverter
         val vecs =   par.map(converter.convertTweetToVector)
-        val answer = driver.run(sc, vecs, 41, 0.5).collect()
+        val answer = driver.run(sc, vecs, 3, 0.7).collect()
 //        answer.map{case(i,j,s) => Similarity(i,j,s)}.foreach(println)
 
 

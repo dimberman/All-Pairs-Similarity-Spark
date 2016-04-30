@@ -46,7 +46,13 @@ object StaticPartitioner extends Serializable {
 
 
     def partitionByL1Sort(r: RDD[VectorWithIndex], numBuckets: Int, numVectors: Long): RDD[(Int, VectorWithIndex)] = {
-        r.map(v => (l1Norm(v.vec), v)).sortByKey().zipWithIndex().map { case ((l1, vec), sortIndex) => ((sortIndex.toFloat / numVectors.toFloat * numBuckets).toInt, vec) }
+        r.map(v => (l1Norm(v.vec), v))
+          .sortByKey()
+          .zipWithIndex()
+          .map {
+              case ((l1, vec), sortIndex) =>
+                  ((sortIndex.toFloat / numVectors.toFloat * numBuckets).toInt, vec)
+          }
     }
 
 
@@ -82,44 +88,36 @@ object StaticPartitioner extends Serializable {
 
 
     def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, VectorWithNorms)], leaders: Array[(Int, Double)], threshold: Double, sc: SparkContext): RDD[((Int, Int), VectorWithNorms)] = {
-        //this step should reduce the amount of data that needs to be shuffled
-        val idealVectors = determineIdealVectors(inputVectors)
-//        idealVectors.foreach(a => println(s"ideal vectors: $a"))
-        val persistedInputvecs = inputVectors.persist()
-        val lInfNormsOnly = persistedInputvecs.mapValues(_.lInf)
-        val buckets: RDD[Int] = lInfNormsOnly.mapPartitions {
-            case (i) =>
-                val idealMap:MMap[(Int,Int), Double] = MMap()
+        val idealVectors = determineIdealVectors(inputVectors).toMap
 
-                i.map {
-                    case (bucket, infNorm) =>
-                        val tmax = threshold / infNorm
+        inputVectors.mapPartitions{
+            iter =>
+                val idealMap:MMap[(Int,Int), Double] = MMap()
+                iter.map{
+                    case(bucket,vec) =>
+                        val infNorm = vec.lInf
+                        val tMax = threshold / infNorm
                         var res = 0
-                        if (tmax < leaders.head._2) res = bucket + 1
+                        if (tMax < leaders.head._2) res = bucket + 1
                         else if (bucket == 0) res = 1
                         else {
-                            while (res < bucket && tmax > leaders(res)._2) {
+                            while (res < bucket && tMax > leaders(res)._2) {
                                 res += 1
                             }
-                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket)._2, idealVectors(res)._2, idealMap) < threshold) {
+                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap) < threshold) {
                                 res += 1
                             }
                         }
-                        res - 1
+                        val ans = res - 1
+                        require(ans != -1, "something went wrong and there is a bucket that was never given a tl")
+                        vec.associatedLeader = ans
+                        ((bucket,ans),vec)
                 }
         }
-
-
-
-        val ret = persistedInputvecs.zip(buckets).map {
-            case ((key, vec), matchedBucket) =>
-                //TODO mutable values would be faster
-                val nVec = new VectorWithNorms(vec.lInf, vec.l1, vec.normalizer, vec.vector, vec.index, matchedBucket)
-                ((key, matchedBucket), nVec)
-        }
-        persistedInputvecs.unpersist()
-        ret
     }
+
+
+
 
     def getMaximalSimilarity(key:(Int,Int), vectorA:SparseVector, vectorB:SparseVector, idealMap:MMap[(Int,Int), Double]):Double = {
         if(idealMap.contains(key)) idealMap(key)

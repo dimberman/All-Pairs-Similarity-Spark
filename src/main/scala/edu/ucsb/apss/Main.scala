@@ -25,7 +25,8 @@ case class PSSConfig(
                       thresholds: Seq[Double] = Seq(0.9),
                       numLayers: Int = 21,
                       balanceStage1: Boolean = true,
-                      balanceStage2: Boolean = true
+                      balanceStage2: Boolean = true,
+                      output: String = "/user/output"
 
                     )
 
@@ -54,12 +55,17 @@ object Main {
               .action { (x, c) =>
                   c.copy(numLayers = x)
               } text "number of layers in PSS, defaults to 21"
+            opt[String]('o', "output")
+              .optional()
+              .action { (x, c) =>
+                  c.copy(output = x)
+              } text "number of layers in PSS, defaults to 21"
         }
 
 
-        opts.parse(args,PSSConfig()) foreach {
+        opts.parse(args, PSSConfig()) foreach {
             case conf =>
-                 run(conf)
+                run(conf)
         }
 
 
@@ -76,12 +82,13 @@ object Main {
         val executionValues = config.thresholds
         val buckets = config.numLayers
         val vecs = par.map((new TweetToVectorConverter).convertTweetToVector)
-        val staticPartitioningValues = ArrayBuffer[Long]()
+        val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
+        val actualStaticPartitioningValues = ArrayBuffer[Long]()
         val dynamicPartitioningValues = ArrayBuffer[Long]()
         val timings = ArrayBuffer[Long]()
 
 
-        val driver = new PSSDriver((config.balanceStage1,config.balanceStage2))
+        val driver = new PSSDriver((config.balanceStage1, config.balanceStage2))
 
 
 
@@ -89,13 +96,15 @@ object Main {
             val threshold = i
             val t1 = System.currentTimeMillis()
             val answer = driver.run(sc, vecs, buckets, threshold).persist()
-            answer.count()
+
             val current = System.currentTimeMillis() - t1
+            answer.saveAsTextFile(config.output + s"/t=$threshold")
             log.info(s"breakdown: apss with threshold $threshold using $buckets buckets took ${current / 1000} seconds")
-            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
-            println("breakdown: top 10 similarities")
-            top.foreach(s => println(s"breakdown: $s"))
-            staticPartitioningValues.append(driver.sParReduction)
+//            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
+//            println("breakdown: top 10 similarities")
+//            top.foreach(s => println(s"breakdown: $s"))
+            theoreticalStaticPartitioningValues.append(driver.theoreticalStaticPairReduction)
+            actualStaticPartitioningValues.append(driver.actualStaticPairReduction)
             dynamicPartitioningValues.append(driver.dParReduction)
             timings.append(current / 1000)
             answer.unpersist()
@@ -111,8 +120,10 @@ object Main {
         log.info("breakdown: ************histogram******************")
         //        log.info("breakdown:," + buckets.foldRight("")((a,b) => a + "," + b))
         log.info("breakdown:threshold," + executionValues.mkString(","))
-        log.info("breakdown:staticPairRemoval," + staticPartitioningValues.mkString(","))
-        log.info("breakdown:static%reduction," + staticPartitioningValues.map(a => a.toDouble / numPairs *100).map(truncateAt(_,2)).map(_+"%").mkString(","))
+        log.info("breakdown: theoretical pairs removed,"  + theoreticalStaticPartitioningValues.mkString(","))
+        log.info("breakdown: theoretical % reduction,"  + theoreticalStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
+        log.info("breakdown:actual pairs removed," + actualStaticPartitioningValues.mkString(","))
+        log.info("breakdown:actual % reduction," + actualStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
         log.info("breakdown:dynamic," + dynamicPartitioningValues.foldRight("")((a, b) => a + "," + b))
         log.info("breakdown:timing," + timings.mkString(","))
     }

@@ -50,8 +50,8 @@ object LoadBalancer extends Serializable {
             case 1 =>
                 val start = bucket
                 val proposedBuckets = (List.range(start + 1, (start + 1) + (numBuckets - 1) / 2)
-                  //                  .map(_ - neededVecs.length / 2)
-                  :+ start).map(a => if (a < 0) a + numBuckets else a)
+                  :+ start
+                  ).map(a => if (a < 0) a + numBuckets else a)
                 val modded = proposedBuckets.map(a => a % numBuckets)
                 modded.flatMap(a => neededVecs.filter(b => b._1 == a)
                   .filter(c => isCandidate((bucket,tiedLeader), c))
@@ -107,6 +107,8 @@ object LoadBalancer extends Serializable {
 //        println(s"after stage 2 cost: $s2cost")
 
         balanced.mapValues(_.toList).toMap
+
+        input
     }
 
 
