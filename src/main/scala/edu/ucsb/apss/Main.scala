@@ -26,7 +26,8 @@ case class PSSConfig(
                       numLayers: Int = 21,
                       balanceStage1: Boolean = true,
                       balanceStage2: Boolean = true,
-                      output: String = "/user/output"
+                      output: String = "/user/output",
+                    histTitle: String = "histogram"
 
                     )
 
@@ -59,7 +60,12 @@ object Main {
               .optional()
               .action { (x, c) =>
                   c.copy(output = x)
-              } text "number of layers in PSS, defaults to 21"
+              } text "output directory for APSS, defaults to /user/output"
+            opt[String]('h', "histogram-title")
+              .optional()
+              .action { (x, c) =>
+                  c.copy(histTitle = x)
+              } text "title for histogram, defaults to \"histogram\""
         }
 
 
@@ -95,10 +101,9 @@ object Main {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            val answer = driver.run(sc, vecs, buckets, threshold).persist()
-
+            driver.run(sc, vecs, buckets, threshold).count()
             val current = System.currentTimeMillis() - t1
-            answer.saveAsTextFile(config.output + s"/t=$threshold")
+//            answer.saveAsTextFile(config.output + s"/t=$threshold")
             log.info(s"breakdown: apss with threshold $threshold using $buckets buckets took ${current / 1000} seconds")
 //            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
 //            println("breakdown: top 10 similarities")
@@ -107,7 +112,6 @@ object Main {
             actualStaticPartitioningValues.append(driver.actualStaticPairReduction)
             dynamicPartitioningValues.append(driver.dParReduction)
             timings.append(current / 1000)
-            answer.unpersist()
         }
 
 
@@ -117,14 +121,14 @@ object Main {
         val numPairs = driver.numVectors * driver.numVectors / 2
         log.info("breakdown:")
         log.info("breakdown:")
-        log.info("breakdown: ************histogram******************")
+        log.info(s"breakdown: ************${config.histTitle}******************")
         //        log.info("breakdown:," + buckets.foldRight("")((a,b) => a + "," + b))
         log.info("breakdown:threshold," + executionValues.mkString(","))
         log.info("breakdown: theoretical pairs removed,"  + theoreticalStaticPartitioningValues.mkString(","))
+        log.info("breakdown: actual pairs removed,"  + theoreticalStaticPartitioningValues.mkString(","))
         log.info("breakdown: theoretical % reduction,"  + theoreticalStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
-        log.info("breakdown:actual pairs removed," + actualStaticPartitioningValues.mkString(","))
         log.info("breakdown:actual % reduction," + actualStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
-        log.info("breakdown:dynamic," + dynamicPartitioningValues.foldRight("")((a, b) => a + "," + b))
+        log.info("breakdown:dynamic pairs filtered," + dynamicPartitioningValues.foldRight("")((a, b) => a + "," + b))
         log.info("breakdown:timing," + timings.mkString(","))
     }
 

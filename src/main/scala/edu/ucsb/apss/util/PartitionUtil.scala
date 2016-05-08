@@ -23,10 +23,14 @@ object PartitionUtil extends Serializable {
     def dotProduct(v1: SparseVector, v2: SparseVector): Double = {
         val v1Map = v1.indices.zip(v1.values).toMap
         var sum = 0.0
+        var aVal = 0.0
+        var bVal = 0.0
         var num = 0
         for (i <- v2.indices.indices) {
             if (v1Map.contains(v2.indices(i))) {
                 sum += v1Map(v2.indices(i)) * v2.values(i)
+//                aVal +=  v1Map(v2.indices(i)) * v1Map(v2.indices(i))
+//                bVal +=  v2.values(i) * v2.values(i)
             }
         }
 
@@ -35,6 +39,8 @@ object PartitionUtil extends Serializable {
         val bnorm = math.sqrt(v2.values.map(x => x * x).sum)
 
         val answer = sum / (anorm * bnorm)
+//        println(s"ideal similarity: $answer")
+//        val answer = sum/(math.sqrt(aVal) * math.sqrt(bVal))
         //        val answer =  sum/(math.sqrt(anorm)* math.sqrt(bnorm))
 
 

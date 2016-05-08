@@ -35,7 +35,15 @@ object InvertedIndex {
         vec.indices.indices.map(i => (vec.indices(i), List(FeaturePair(index, vec.values(i))))).toArray
     }
 
-    def generateSplitInvertedIndexes(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)], invSize: Int): RDD[((Int, Int), Iterable[SimpleInvertedIndex])] = {
+    /**
+      *
+      * Limiting invertedIndex size to optimize GC in accordance with PSS1
+      * @param bucketizedVectors
+      * @param invertedIndexSize
+      * @return
+      */
+
+    def generateInvertedIndexes(bucketizedVectors: RDD[((Int, Int), VectorWithNorms)], invertedIndexSize: Int): RDD[((Int, Int), Iterable[SimpleInvertedIndex])] = {
 
 
 //        val incorrectAccum: Accumulator[ArrayBuffer[String]] = bucketizedVectors.context.accumulator(ArrayBuffer(""))(StringAccumulatorParam)
@@ -45,7 +53,7 @@ object InvertedIndex {
 
         val marked = bucketizedVectors.groupByKey().flatMap{
             case (x,i) =>
-                i.zipWithIndex.map{case(j,k) => ((x,k/invSize),j)}
+                i.zipWithIndex.map{case(j,k) => ((x,k/invertedIndexSize),j)}
         }
         marked.groupByKey().map {
             case((k,v),i) =>

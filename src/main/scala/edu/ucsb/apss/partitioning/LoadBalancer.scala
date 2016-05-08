@@ -1,5 +1,7 @@
 package edu.ucsb.apss.partitioning
 
+import org.apache.log4j.Logger
+
 import scala.collection.mutable.{Set => MSet, Map => MMap}
 import scala.util.control.Breaks
 
@@ -9,8 +11,8 @@ import scala.util.control.Breaks
   */
 
 
-object MinOrder extends Ordering[(Int,Int)] {
-    def compare(x: (Int,Int), y: (Int,Int)) = y._2 compare x._2
+object MinOrder extends Ordering[(Int, Int)] {
+    def compare(x: (Int, Int), y: (Int, Int)) = y._2 compare x._2
 }
 
 
@@ -22,9 +24,8 @@ object LoadBalancer extends Serializable {
         numBuckets % 2 match {
             case 1 =>
                 val start = neededVecs.indexOf((bucket, tiedLeader))
-                val proposedBuckets = (List.range(start + 1, (start + 1) + (start - 1) / 2)
-//                  .map(_ - neededVecs.length / 2)
-                  :+ start).map(a => if (a < 0) a + neededVecs.length else a)
+                val proposedBuckets = (List.range(start + 1, (start + 1) + (neededVecs.length - 1) / 2) :+ start)
+                  .map(a => if (a < 0) a + neededVecs.length else a)
                 val modded = proposedBuckets.map(a => a % neededVecs.size)
                 modded.map(neededVecs(_)).filter(isCandidate((bucket, tiedLeader), _)
 
@@ -53,10 +54,12 @@ object LoadBalancer extends Serializable {
                   :+ start
                   ).map(a => if (a < 0) a + numBuckets else a)
                 val modded = proposedBuckets.map(a => a % numBuckets)
-                modded.flatMap(a => neededVecs.filter(b => b._1 == a)
-                  .filter(c => isCandidate((bucket,tiedLeader), c))
-                )
-//                modded.map(neededVecs(_)).filter(isCandidate((bucket, tiedLeader), _)
+
+
+                val n = modded.flatMap(a => neededVecs.filter(b => b._1 == a))
+                val ans = n.filter(c => isCandidate((bucket, tiedLeader), c))
+                ans
+            //                modded.map(neededVecs(_)).filter(isCandidate((bucket, tiedLeader), _)
 
 
             case 0 =>
@@ -75,15 +78,19 @@ object LoadBalancer extends Serializable {
     }
 
 
-
-
-
-
-
     def isCandidate(a: (Int, Int), b: (Int, Int)): Boolean = {
-        if (a._1 == a._2 || b._1 == b._2) true
-        else !((a._2 >= b._1) || (b._2 >= a._1))
-        //        true
+        if (a._1 > b._1) {
+            if (a._1 == a._2) true
+            else !(a._2 >= b._1)
+        }
+            else if (a._1==b._1){
+              a._2 >= b._2
+        }
+        else {
+            if (b._1 == b._2) true
+            //only compare if tiedleader(a) is < bucket(b)
+            else !(b._2 >= a._1)
+        }
     }
 
 
@@ -92,23 +99,37 @@ object LoadBalancer extends Serializable {
       */
 
 
-    def balance(input: Map[Key, List[Key]], bucketSizes: Map[Key, Int], options: (Boolean, Boolean)): Map[Key, List[Key]] = {
+    def balance(input: Map[Key, List[Key]], bucketSizes: Map[Key, Int], options: (Boolean, Boolean), log:Option[Logger] = None): Map[Key, List[Key]] = {
         val (s1, s2) = options
+
         val inp = MMap() ++ input.mapValues(MSet() ++ _.toSet).map(identity)
         val initialCost = inp.values.toList.map(_.size).sum
-//        println(s"initial cost: $initialCost")
+        //        println(s"initial cost: $initialCost")
         val stage1 = if (s1) initialLoadAssignment(inp, bucketSizes) else inp
+        handleLog("loadbalance: stage 1 complete", log)
         val s1cost = stage1.values.toList.map(_.size).sum
-//        println(s"after stage 1 cost: $s1cost")
+        //        println(s"after stage 1 cost: $s1cost")
+        stage1.mapValues(_.toList).toMap
 
-        val balanced = if (s2) loadAssignmentRefinement(stage1, bucketSizes) else stage1
-        val s2cost = balanced.values.toList.map(_.size).sum
+//        val balanced = if (s2) loadAssignmentRefinement(stage1, bucketSizes) else stage1
+//        handleLog("loadbalance: stage 2 complete", log)
+//
+//        val s2cost = balanced.values.toList.map(_.size).sum
 
-//        println(s"after stage 2 cost: $s2cost")
+        //        println(s"after stage 2 cost: $s2cost")
 
-        balanced.mapValues(_.toList).toMap
+//        balanced.mapValues(_.toList).toMap
 
-        input
+//        input
+    }
+
+
+    def handleLog(message:String, logger:Option[Logger]) = {
+       logger match {
+           case Some(x) =>
+               x.info(s"breakdown: $message")
+           case None =>
+       }
     }
 
 
@@ -172,15 +193,15 @@ object LoadBalancer extends Serializable {
         val sortedByCost = inp.map(calculateCost(_, bucketSizes)).toList.sortBy(-_._2)
         val partitionMap: MMap[Int, Int] = MMap().withDefaultValue(0)
         val minHeap = scala.collection.mutable.PriorityQueue.empty(MinOrder)
-        val partMap:MMap[Key,Int] = MMap[Key,Int]()
-        for(i <- 0 to numPartitions){
-            minHeap.enqueue((i,0))
+        val partMap: MMap[Key, Int] = MMap[Key, Int]()
+        for (i <- 0 to numPartitions) {
+            minHeap.enqueue((i, 0))
         }
-        sortedByCost.foreach{
-            case(k,v) =>
-                val (lowestPar, lowestVal) = minHeap.dequeue()
-                partMap += (k -> lowestPar)
-                minHeap.enqueue((lowestPar, lowestVal+v))
+        sortedByCost.foreach {
+            case (key, cost) =>
+                val (lowestCostPartition, lowestCost) = minHeap.dequeue()
+                partMap += (key -> lowestCostPartition)
+                minHeap.enqueue((lowestCostPartition, lowestCost + cost))
         }
         partMap.toMap
 
