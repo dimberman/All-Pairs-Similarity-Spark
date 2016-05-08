@@ -98,17 +98,19 @@ object StaticPartitioner extends Serializable {
                         val infNorm = vec.lInf
                         val tMax = threshold / infNorm
                         var res = 0
-                        if (tMax < leaders.head._2) res = bucket + 1
-                        else if (bucket == 0) res = 1
+                        if (tMax <= leaders.head._2 || bucket==0) res = bucket
                         else {
                             while (res < bucket && tMax > leaders(res)._2) {
                                 res += 1
                             }
-                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap) < threshold) {
-                                res += 1
-                            }
+//                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap) < threshold) {
+//                                res += 1
+//                            }
+//                            if(getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res-1), idealMap) > threshold && bucket != (res-1))
+//                                println(s"maximal ideal: ($bucket, $res) " + getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap))
+                            res -=1
                         }
-                        val ans = res - 1
+                        val ans = res
                         require(ans != -1, "something went wrong and there is a bucket that was never given a tl")
                         vec.associatedLeader = ans
                         ((bucket,ans),vec)

@@ -109,7 +109,7 @@ class InvertedIndexTest extends FlatSpec with Matchers with BeforeAndAfter {
     "integration test" should "create two SimpleIndexes" in {
         bowVectors.foreach(println)
         val indexA = sc.parallelize(bowVectors.take(2).map(x => ((1, 0), x)))
-        val answer = InvertedIndex.generateSplitInvertedIndexes(indexA,100).collect().head._2.head
+        val answer = InvertedIndex.generateInvertedIndexes(indexA,100).collect().head._2.head
         answer.indices.foreach{
             case(k,v) =>
                 println(s"key : $k, got: $v, expected ${integrationAnswer.indices(k)}")
