@@ -116,49 +116,17 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
 
         theoreticalStaticPairReduction = numComparisons - unbalancedComparisons
 
-        log.info("")
-        log.info("")
-        log.info("static partitioning breakdown:")
 
 
-        unbalanced.toList.map { case ((b, t), v) =>
-            var nvec = 0
-            for (i <- 0 to b) nvec += bucketSizes(i)
-            if (b == t) {
-                ((b, t), (0, nvec))
-            }
-            else {
-                var nvecSkipped = 0
-                for (i <- 0 to t){
-                    require(bucketSizes(i) >= bucketizedVectorSizeMap((i, i)), s"breakdown: got negative value from bucket $i: size[$i]:${bucketSizes(i)}, partition($i,$i):${bucketizedVectorSizeMap((i, i))}")
-                    nvecSkipped += bucketSizes(i)
-                }
-                ((b, t), (nvecSkipped, nvec))
-
-            }
-        }.sortBy(_._1).foreach {
-            case (k, (v, n)) =>
-                log.info(s"breakdown: $k: $n vectors. $v skipped")
-        }
-
-
-
-        log.info("breakdown: after duplicate removal skipped pairs: " + (numComparisons -unbalancedComparisons))
-
-        log.info("breakdown: after duplicate removal skip %: " + truncateAt((numComparisons - unbalancedComparisons.toDouble) / numComparisons * 100, 2) + "%")
-
-
-
-//        unbalanced
+        if (debugPSS) logLoadBalancing(unbalanced, unbalancedComparisons)
 
        val ans =  if (balance) LoadBalancer.balance(unbalanced, bucketizedVectorSizeMap, loadBalance, Some(log)) else unbalanced
 
-        log.info("breakdown: banlancing complete")
+        log.info("breakdown: balancing complete")
 
 
         ans
     }
-
 
     def calculateCosineSimilarityByPullingFromFile(invertedIndexes: RDD[((Int, Int), Iterable[SimpleInvertedIndex])], threshold: Double, numBuckets: Int, balancedMapping: Map[(Int, Int), List[(Int, Int)]], calcSize: Int = 100): RDD[(Long, Long, Double)] = {
         //        log.info(s"num partitions: ${partitionedTasks.partitions.length}")
@@ -382,6 +350,43 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
         log.info("breakdown: theoretical skipped pair %: " + truncateAt(skippedPairs.toDouble / numComparisons * 100, 2) + "%")
 
     }
+
+
+
+
+    def logLoadBalancing(unbalanced: Map[(Int, Int), List[(Int, Int)]], unbalancedComparisons: Int): Unit = {
+        log.info("")
+        log.info("")
+        log.info("static partitioning breakdown:")
+
+
+        unbalanced.toList.map { case ((b, t), v) =>
+            var nvec = 0
+            for (i <- 0 to b) nvec += bucketSizes(i)
+            if (b == t) {
+                ((b, t), (0, nvec))
+            }
+            else {
+                var nvecSkipped = 0
+                for (i <- 0 to t) {
+                    require(bucketSizes(i) >= bucketizedVectorSizeMap((i, i)), s"breakdown: got negative value from bucket $i: size[$i]:${bucketSizes(i)}, partition($i,$i):${bucketizedVectorSizeMap((i, i))}")
+                    nvecSkipped += bucketSizes(i)
+                }
+                ((b, t), (nvecSkipped, nvec))
+
+            }
+        }.sortBy(_._1).foreach {
+            case (k, (v, n)) =>
+                log.info(s"breakdown: $k: $n vectors. $v skipped")
+        }
+
+
+
+        log.info("breakdown: after duplicate removal skipped pairs: " + (numComparisons - unbalancedComparisons))
+
+        log.info("breakdown: after duplicate removal skip %: " + truncateAt((numComparisons - unbalancedComparisons.toDouble) / numComparisons * 100, 2) + "%")
+    }
+
 
 
     def logDynamicPartitioningOutput(skipped: Accumulator[Long], reduced: Accumulator[Long], postStaticPartitioningPairs: Accumulator[Long], manager: FileSystemManager, sc: SparkContext, BVConf: Broadcast[SerializableWritable[Configuration]], driverAccum: Accumulable[ArrayBuffer[DebugVal], DebugVal], similarities: RDD[Similarity]) = {
