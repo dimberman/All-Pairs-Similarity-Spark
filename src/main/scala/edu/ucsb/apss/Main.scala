@@ -27,7 +27,8 @@ case class PSSConfig(
                       balanceStage1: Boolean = true,
                       balanceStage2: Boolean = true,
                       output: String = "/user/output",
-                    histTitle: String = "histogram"
+                      histTitle: String = "histogram",
+                      debug: Boolean = false
 
                     )
 
@@ -66,6 +67,11 @@ object Main {
               .action { (x, c) =>
                   c.copy(histTitle = x)
               } text "title for histogram, defaults to \"histogram\""
+            opt[Boolean]('d', "debug")
+              .optional()
+              .action { (x, c) =>
+                  c.copy(debug = x)
+              } text "toggle debug logging. defaults to false"
         }
 
 
@@ -101,13 +107,13 @@ object Main {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            driver.run(sc, vecs, buckets, threshold).count()
+            driver.run(sc, vecs, buckets, threshold,debug = config.debug).count()
             val current = System.currentTimeMillis() - t1
-//            answer.saveAsTextFile(config.output + s"/t=$threshold")
+            //            answer.saveAsTextFile(config.output + s"/t=$threshold")
             log.info(s"breakdown: apss with threshold $threshold using $buckets buckets took ${current / 1000} seconds")
-//            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
-//            println("breakdown: top 10 similarities")
-//            top.foreach(s => println(s"breakdown: $s"))
+            //            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
+            //            println("breakdown: top 10 similarities")
+            //            top.foreach(s => println(s"breakdown: $s"))
             theoreticalStaticPartitioningValues.append(driver.theoreticalStaticPairReduction)
             actualStaticPartitioningValues.append(driver.actualStaticPairReduction)
             dynamicPartitioningValues.append(driver.dParReduction)
@@ -124,9 +130,9 @@ object Main {
         log.info(s"breakdown: ************${config.histTitle}******************")
         //        log.info("breakdown:," + buckets.foldRight("")((a,b) => a + "," + b))
         log.info("breakdown:threshold," + executionValues.mkString(","))
-        log.info("breakdown: theoretical pairs removed,"  + theoreticalStaticPartitioningValues.mkString(","))
-        log.info("breakdown: actual pairs removed,"  + theoreticalStaticPartitioningValues.mkString(","))
-        log.info("breakdown: theoretical % reduction,"  + theoreticalStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
+        log.info("breakdown: theoretical pairs removed," + theoreticalStaticPartitioningValues.mkString(","))
+        log.info("breakdown: actual pairs removed," + theoreticalStaticPartitioningValues.mkString(","))
+        log.info("breakdown: theoretical % reduction," + theoreticalStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
         log.info("breakdown:actual % reduction," + actualStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
         log.info("breakdown:dynamic pairs filtered," + dynamicPartitioningValues.foldRight("")((a, b) => a + "," + b))
         log.info("breakdown:timing," + timings.mkString(","))
