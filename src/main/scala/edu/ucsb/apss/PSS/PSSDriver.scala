@@ -120,7 +120,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
 
         if (debugPSS) logLoadBalancing(unbalanced, unbalancedComparisons)
 
-       val ans =  if (balance) LoadBalancer.balance(unbalanced, bucketizedVectorSizeMap, loadBalance, Some(log)) else unbalanced
+       val ans =  if (balance) LoadBalancer.balance(unbalanced, bucketizedVectorSizeMap, loadBalance, Some(log), debugPSS) else unbalanced
 
         log.info("breakdown: balancing complete")
 

@@ -99,32 +99,46 @@ object LoadBalancer extends Serializable {
       */
 
 
-    def balance(input: Map[Key, List[Key]], bucketSizes: Map[Key, Long], options: (Boolean, Boolean), log:Option[Logger] = None): Map[Key, List[Key]] = {
+    def balance(input: Map[Key, List[Key]], bucketSizes: Map[Key, Long], options: (Boolean, Boolean), log:Option[Logger] = None, debug:Boolean = false): Map[Key, List[Key]] = {
         val (s1, s2) = options
 
         val inp = MMap() ++ input.mapValues(MSet() ++ _.toSet).map(identity)
-        val initialCost = inp.values.toList.map(_.size).sum
+        val initialCost = inp.map(calculateCost(_,bucketSizes)).values.toList
         //        println(s"initial cost: $initialCost")
+        handleLog(s"loadBalance: before balancing: std-dev = ${stdDev(initialCost}",log)
         val stage1 = if (s1) initialLoadAssignment(inp, bucketSizes) else inp
         handleLog("loadbalance: stage 1 complete", log)
-        handleLog("loadbalance: stage 1 values:", log)
-        stage1.foreach(v => handleLog(v.toString(), log))
+        if(debug){
+            val s1cost = stage1.map(calculateCost(_,bucketSizes)).values.toList
+            handleLog(s"loadBalance: after stage 1: std-dev = ${stdDev(s1cost)}",log)
+        }
 
-        handleLog(s"loadbalance: bucketSizes: $bucketSizes", log)
 
 
-        //        println(s"after stage 1 cost: $s1cost")
+
+
 
         val balanced = if (s2) loadAssignmentRefinement(stage1, bucketSizes) else stage1
         handleLog("loadbalance: stage 2 complete", log)
-//
-//        val s2cost = balanced.values.toList.map(_.size).sum
+        if(debug){
+            val s2cost = balanced.map(calculateCost(_,bucketSizes)).values.toList
+            handleLog(s"loadBalance: after stage 1: std-dev = ${stdDev(s2cost)}",log)
+        }
 
-        //        println(s"after stage 2 cost: $s2cost")
+
 
         balanced.mapValues(_.toList).toMap
 
 //        input
+    }
+
+
+    def stdDev(s:List[Long])={
+        val scores = s.map(_.toDouble)
+        val count = scores.size
+        val mean = scores.sum / count
+        val devs = scores.map(score => (score - mean) * (score - mean))
+        val stddev = Math.sqrt(devs.sum / count)
     }
 
 
@@ -212,6 +226,7 @@ object LoadBalancer extends Serializable {
         partMap.toMap
 
     }
+
 
 
     def calculateCost(input: ((Key), MSet[Key]), bucketSizes: Map[Key, Long]): (Key, Long) = {
