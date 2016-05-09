@@ -42,7 +42,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
     var actualStaticPairReduction = 0L
 
     var dParReduction = 0L
-    var bucketizedVectorSizeMap: Map[(Int, Int), Int] = _
+    var bucketizedVectorSizeMap: Map[(Int, Int), Long] = _
     var appId: String = _
     var sPar = 0L
     var dPar = 0L
@@ -89,7 +89,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
     def staticPartition(l1partitionedVectors: RDD[(Int, VectorWithNorms)], threshold: Double, sc: SparkContext) = {
         val bucketLeaders = determineBucketLeaders(l1partitionedVectors)
         val sPartitioned = partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
-        bucketizedVectorSizeMap = sPartitioned.countByKey().mapValues(_.toInt).toMap.withDefault(_ => 0)
+        bucketizedVectorSizeMap = sPartitioned.countByKey().toMap.withDefault(_ => 0)
         bucketizedVectorSizeMap.toList.sortBy(_._1).foreach(println)
         sPartitioned
 
@@ -354,7 +354,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
 
 
 
-    def logLoadBalancing(unbalanced: Map[(Int, Int), List[(Int, Int)]], unbalancedComparisons: Int): Unit = {
+    def logLoadBalancing(unbalanced: Map[(Int, Int), List[(Int, Int)]], unbalancedComparisons: Long): Unit = {
         log.info("")
         log.info("")
         log.info("static partitioning breakdown:")

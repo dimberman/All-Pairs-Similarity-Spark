@@ -29,6 +29,8 @@ libraryDependencies += "com.amazonaws" % "aws-java-sdk" % "1.0.002"
 
 libraryDependencies += "com.github.scopt" % "scopt_2.10" % "3.3.0"
 
+libraryDependencies += "net.liftweb" %% "lift-json" % "2.5.1"
+
 
 //libraryDependencies += "com.typesafe.play" % "play_2.10" % "2.4.6"
 

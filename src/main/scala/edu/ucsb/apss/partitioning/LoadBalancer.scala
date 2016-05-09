@@ -11,8 +11,8 @@ import scala.util.control.Breaks
   */
 
 
-object MinOrder extends Ordering[(Int, Int)] {
-    def compare(x: (Int, Int), y: (Int, Int)) = y._2 compare x._2
+object MinOrder extends Ordering[(Int, Long)] {
+    def compare(x: (Int, Long), y: (Int, Long)) = y._2 compare x._2
 }
 
 
@@ -99,7 +99,7 @@ object LoadBalancer extends Serializable {
       */
 
 
-    def balance(input: Map[Key, List[Key]], bucketSizes: Map[Key, Int], options: (Boolean, Boolean), log:Option[Logger] = None): Map[Key, List[Key]] = {
+    def balance(input: Map[Key, List[Key]], bucketSizes: Map[Key, Long], options: (Boolean, Boolean), log:Option[Logger] = None): Map[Key, List[Key]] = {
         val (s1, s2) = options
 
         val inp = MMap() ++ input.mapValues(MSet() ++ _.toSet).map(identity)
@@ -107,7 +107,12 @@ object LoadBalancer extends Serializable {
         //        println(s"initial cost: $initialCost")
         val stage1 = if (s1) initialLoadAssignment(inp, bucketSizes) else inp
         handleLog("loadbalance: stage 1 complete", log)
-        val s1cost = stage1.values.toList.map(_.size).sum
+        handleLog("loadbalance: stage 1 values:", log)
+        stage1.foreach(v => handleLog(v.toString(), log))
+
+        handleLog(s"loadbalance: bucketSizes: $bucketSizes", log)
+
+
         //        println(s"after stage 1 cost: $s1cost")
         stage1.mapValues(_.toList).toMap
 
@@ -133,7 +138,7 @@ object LoadBalancer extends Serializable {
     }
 
 
-    def initialLoadAssignment(input: MMap[Key, MSet[Key]], bucketSizes: Map[Key, Int]): MMap[Key, MSet[Key]] = {
+    def initialLoadAssignment(input: MMap[Key, MSet[Key]], bucketSizes: Map[Key, Long]): MMap[Key, MSet[Key]] = {
         val answer: MMap[Key, MSet[Key]] = MMap()
         while (input.nonEmpty) {
             val costMap = input.map(calculateCost(_, bucketSizes))
@@ -152,43 +157,112 @@ object LoadBalancer extends Serializable {
     }
 
 
-    def loadAssignmentRefinement(input: MMap[Key, MSet[Key]], bucketSizes: Map[Key, Int]): MMap[Key, MSet[Key]] = {
+    def loadAssignmentRefinement(input: MMap[Key, MSet[Key]], bucketSizes: Map[Key, Long]): MMap[Key, MSet[Key]] = {
         var reduceable = true
         val outerLoop = new Breaks
-        val loop = new Breaks
+        val innerLoop = new Breaks
+        val nonReduceable = MSet[(Int,Int)]()
+        var i = 0
+//        outerLoop.breakable {
+        //            while (reduceable) {
+        //                println(s"loop $i")
+        //
+        //                i += 1
+        //                reduceable = false
+        //                val costs = MMap() ++ input.map(calculateCost(_, bucketSizes))
+        //                val orderedCosts = costs.toList.sortBy(-_._2)
+        //                val last = input.mapValues(_.toSet).toMap
+        //
+        //                    innerLoop.breakable {
+        //                    orderedCosts.foreach {
+        //                        case (k, v) =>
+        //                            val c = bucketSizes(k)
+        //                            var ic = v
+        //                            val internalCosts = input(k).toList.map(x => (x, c * bucketSizes(x))).sortBy(_._2)
+        //                            internalCosts.foreach {
+        //                                case (f, h) =>
+        //                                    if (costs(f) + h < ic) {
+        //                                        costs(f) = costs(f) + h
+        //                                        ic -= h
+        //                                        input(k) -= f
+        //                                        input(f) += k
+        //                                        reduceable = true
+        //                                        innerLoop.break
+        //                                    }
+        //                            }
+        //                    }
+        //                }
+        //
+        //                if(!reduceable) outerLoop.break()
+        //
+        //                val next = input.mapValues(_.toSet).toMap
+        //                require(last != next)
+        //
+        //            }
+        //        }
+        val start = java.lang.System.currentTimeMillis()
+        while (nonReduceable.size < input.size && i < 120000) {
+            println(s"loop $i")
+            var x = (0,0)
+            i += 1
+            val costs = MMap() ++ input.map(calculateCost(_, bucketSizes))
+            val orderedCosts = costs.filter{case(k,v) => !nonReduceable.contains(k)}.toList.sortBy(-_._2)
+            val last = input.mapValues(_.toSet).toMap
+            if (i == 3863){
+                println("problem area")
+            }
 
-
-        outerLoop.breakable {
-            while (reduceable) {
-                reduceable = false
-                val costs = MMap() ++ input.map(calculateCost(_, bucketSizes))
-                val orderedCosts = costs.toList.sortBy(-_._2)
-                loop.breakable {
-                    orderedCosts.foreach {
-                        case (k, v) =>
-                            val c = bucketSizes(k)
-                            var ic = v
-                            val internalCosts = input(k).toList.map(x => (x, c * bucketSizes(x))).sortBy(_._2)
-                            internalCosts.foreach {
-                                case (f, h) =>
-                                    if (costs(f) + h < ic) {
-                                        costs(f) = costs(f) + h
-                                        ic -= h
-                                        input(k) -= f
-                                        input(f) += k
-                                        reduceable = true
-                                        loop.break
+            val oldSize = nonReduceable.size
+            innerLoop.breakable {
+                orderedCosts.foreach {
+                    case (k, v) =>
+                        val c = bucketSizes(k)
+                        var ic = v
+                        val internalCosts = input(k).toList.map(x => (x, c * bucketSizes(x))).sortBy(_._2)
+                        if(i == 3863){
+                            val z = input((0,0))
+                            val co = costs((0,0))
+                            co
+                            println("balls")
+                        }
+                        internalCosts.foreach {
+                            case (f, h) =>
+                                if (!nonReduceable.contains(f) && costs(f) + h < ic) {
+                                    costs(f) = costs(f) + h
+                                    ic -= h
+                                    if (i == 3863){
+                                        println(s"input(f) before size: ${input(f).size}")
                                     }
-                            }
-                    }
+                                    input(k) -= f
+                                    input(f) += k
+                                    if (i == 3863){
+                                        println(s"input(f) after size: ${input(f).size}")
+                                        x = f
+                                    }
+                                    innerLoop.break
+                                }
+                        }
+                        val now = (java.lang.System.currentTimeMillis() - start ) /1000
+                        println(s"added $k to nonReduceable! now has size ${nonReduceable.size} after $now seconds")
+                        nonReduceable += k
                 }
             }
+
+            val next = input.mapValues(_.toSet).toMap
+            if (i == 3863){
+                println(s"last(f) before size: ${last(x).size}")
+                println(s"next(f) after size: ${next(x).size}")
+
+            }
+            val newSize = nonReduceable.size
+            require(last != next ||  oldSize < newSize, "there has been no change since the last loop. you run the risk of an infinite loop")
+
         }
         input
     }
 
 
-    def balanceByPartition(numPartitions: Int, balancedVectorMap: Map[Key, List[Key]], bucketSizes: Map[Key, Int]): Map[Key, Int] = {
+    def balanceByPartition(numPartitions: Int, balancedVectorMap: Map[Key, List[Key]], bucketSizes: Map[Key, Long]): Map[Key, Int] = {
         val inp = MMap() ++ balancedVectorMap.mapValues(MSet() ++ _.toSet).map(identity)
         val sortedByCost = inp.map(calculateCost(_, bucketSizes)).toList.sortBy(-_._2)
         val partitionMap: MMap[Int, Int] = MMap().withDefaultValue(0)
@@ -208,7 +282,7 @@ object LoadBalancer extends Serializable {
     }
 
 
-    def calculateCost(input: ((Key), MSet[Key]), bucketSizes: Map[Key, Int]): (Key, Int) = {
+    def calculateCost(input: ((Key), MSet[Key]), bucketSizes: Map[Key, Long]): (Key, Long) = {
         val (key, values) = input
 
         (key, math.pow(bucketSizes(key), 2).toInt + values.map(
