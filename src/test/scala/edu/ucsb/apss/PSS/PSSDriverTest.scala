@@ -81,7 +81,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val actualStaticPartitioningValues = ArrayBuffer[Long]()
         val dynamicPartitioningValues = ArrayBuffer[Long]()
         val timings = ArrayBuffer[Long]()
-        
+
 
 
         for (i <- executionValues) {
@@ -117,6 +117,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         println("breakdown:dynamic pairs filtered," + dynamicPartitioningValues.foldRight("")((a, b) => a + "," + b))
         println("breakdown:timing," + timings.mkString(","))
     }
+
 
 //    it should "remove more pairs statically as the threshold goes up" in {
 //        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
