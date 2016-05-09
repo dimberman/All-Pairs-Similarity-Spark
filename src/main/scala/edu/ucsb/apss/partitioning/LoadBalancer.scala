@@ -114,16 +114,15 @@ object LoadBalancer extends Serializable {
 
 
         //        println(s"after stage 1 cost: $s1cost")
-        stage1.mapValues(_.toList).toMap
 
-//        val balanced = if (s2) loadAssignmentRefinement(stage1, bucketSizes) else stage1
-//        handleLog("loadbalance: stage 2 complete", log)
+        val balanced = if (s2) loadAssignmentRefinement(stage1, bucketSizes) else stage1
+        handleLog("loadbalance: stage 2 complete", log)
 //
 //        val s2cost = balanced.values.toList.map(_.size).sum
 
         //        println(s"after stage 2 cost: $s2cost")
 
-//        balanced.mapValues(_.toList).toMap
+        balanced.mapValues(_.toList).toMap
 
 //        input
     }
@@ -201,16 +200,16 @@ object LoadBalancer extends Serializable {
         //            }
         //        }
         val start = java.lang.System.currentTimeMillis()
-        while (nonReduceable.size < input.size && i < 120000) {
-            println(s"loop $i")
+        while (nonReduceable.size < input.size && i < 50000) {
+//            println(s"loop $i")
             var x = (0,0)
             i += 1
             val costs = MMap() ++ input.map(calculateCost(_, bucketSizes))
             val orderedCosts = costs.filter{case(k,v) => !nonReduceable.contains(k)}.toList.sortBy(-_._2)
-            val last = input.mapValues(_.toSet).toMap
-            if (i == 3863){
-                println("problem area")
-            }
+//            val last = input.mapValues(_.toSet).toMap
+//            if (i == 3863){
+//                println("problem area")
+//            }
 
             val oldSize = nonReduceable.size
             innerLoop.breakable {
@@ -219,43 +218,43 @@ object LoadBalancer extends Serializable {
                         val c = bucketSizes(k)
                         var ic = v
                         val internalCosts = input(k).toList.map(x => (x, c * bucketSizes(x))).sortBy(_._2)
-                        if(i == 3863){
-                            val z = input((0,0))
-                            val co = costs((0,0))
-                            co
-                            println("balls")
-                        }
+//                        if(i == 3863){
+//                            val z = input((0,0))
+//                            val co = costs((0,0))
+//                            co
+//                            println("balls")
+//                        }
                         internalCosts.foreach {
                             case (f, h) =>
                                 if (!nonReduceable.contains(f) && costs(f) + h < ic) {
                                     costs(f) = costs(f) + h
                                     ic -= h
-                                    if (i == 3863){
-                                        println(s"input(f) before size: ${input(f).size}")
-                                    }
+//                                    if (i == 3863){
+//                                        println(s"input(f) before size: ${input(f).size}")
+//                                    }
                                     input(k) -= f
                                     input(f) += k
-                                    if (i == 3863){
-                                        println(s"input(f) after size: ${input(f).size}")
-                                        x = f
-                                    }
+//                                    if (i == 3863){
+//                                        println(s"input(f) after size: ${input(f).size}")
+//                                        x = f
+//                                    }
                                     innerLoop.break
                                 }
                         }
                         val now = (java.lang.System.currentTimeMillis() - start ) /1000
-                        println(s"added $k to nonReduceable! now has size ${nonReduceable.size} after $now seconds")
+//                        println(s"added $k to nonReduceable! now has size ${nonReduceable.size} after $now seconds")
                         nonReduceable += k
                 }
             }
 
-            val next = input.mapValues(_.toSet).toMap
-            if (i == 3863){
-                println(s"last(f) before size: ${last(x).size}")
-                println(s"next(f) after size: ${next(x).size}")
-
-            }
-            val newSize = nonReduceable.size
-            require(last != next ||  oldSize < newSize, "there has been no change since the last loop. you run the risk of an infinite loop")
+//            val next = input.mapValues(_.toSet).toMap
+//            if (i == 3863){
+//                println(s"last(f) before size: ${last(x).size}")
+//                println(s"next(f) after size: ${next(x).size}")
+//
+//            }
+//            val newSize = nonReduceable.size
+//            require(last != next ||  oldSize < newSize, "there has been no change since the last loop. you run the risk of an infinite loop")
 
         }
         input
