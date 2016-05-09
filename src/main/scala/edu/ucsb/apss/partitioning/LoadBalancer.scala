@@ -103,9 +103,10 @@ object LoadBalancer extends Serializable {
         val (s1, s2) = options
 
         val inp = MMap() ++ input.mapValues(MSet() ++ _.toSet).map(identity)
-        val initialCost = inp.map(calculateCost(_,bucketSizes)).values.toList
-        //        println(s"initial cost: $initialCost")
-        handleLog(s"loadBalance: before balancing: std-dev = ${stdDev(initialCost}",log)
+        if(debug) {
+            val initialCost = inp.map(calculateCost(_,bucketSizes)).values.toList
+            handleLog(s"loadBalance: before balancing: std-dev = ${stdDev(initialCost}",log)
+        }
         val stage1 = if (s1) initialLoadAssignment(inp, bucketSizes) else inp
         handleLog("loadbalance: stage 1 complete", log)
         if(debug){
