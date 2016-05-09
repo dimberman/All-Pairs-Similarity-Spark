@@ -117,7 +117,7 @@ object LoadBalancer extends Serializable {
 
         if(debug) {
             val initialCost = inp.map(calculateCost(_,bucketSizes)).values.toList
-            handleLog(s"loadBalance: before balancing: std-dev = ${stdDev(initialCost}",log)
+            handleLog(s"loadBalance: before balancing: std-dev = ${stdDev(initialCost)}",log)
         }
 
         if(debug){

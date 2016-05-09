@@ -119,19 +119,6 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 //    it should "remove more pairs statically as the threshold goes up" in {
 //        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
 //        val converter = new TweetToVectorConverter
