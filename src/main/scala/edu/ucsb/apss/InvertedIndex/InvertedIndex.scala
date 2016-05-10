@@ -18,8 +18,6 @@ import scala.util.Random
 /**
   * Created by dimberman on 1/14/16.
   */
-case class BucketHolder(b: (Int, Int)) extends Serializable
-
 
 case class SimpleInvertedIndex(indices: Map[Int, List[FeaturePair]])
 

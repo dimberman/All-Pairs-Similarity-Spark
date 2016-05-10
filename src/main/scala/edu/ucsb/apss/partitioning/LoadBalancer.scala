@@ -127,7 +127,7 @@ object LoadBalancer extends Serializable {
 
         if(debug){
             val s2cost = balanced.map(calculateCost(_,bucketSizes)).values.toList
-            handleLog(s"loadBalance: after stage 1: std-dev = ${stdDev(s2cost)}",log)
+            handleLog(s"loadBalance: after stage 2: std-dev = ${stdDev(s2cost)}",log)
         }
 
         balanced.mapValues(_.toList).toMap
@@ -141,7 +141,7 @@ object LoadBalancer extends Serializable {
         val count = scores.size
         val mean = scores.sum / count
         val devs = scores.map(score => (score - mean) * (score - mean))
-        val stddev = Math.sqrt(devs.sum / count)
+        Math.sqrt(devs.sum / count)
     }
 
 
