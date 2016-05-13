@@ -14,7 +14,7 @@ class TweetToVectorConverterTest extends FlatSpec with Matchers with BeforeAndAf
        val input = sc.parallelize(Seq("I like bananas", "bananas are yummy", "bananas", "bananas", "bananas"))
        val converter = new TweetToVectorConverter
        converter.generateTfWeights(input)
-       val testData = sc.parallelize(Seq("I like bananas", "I like bananas", "bananas are yummy", "bananas bananas bananas", "bananas", "bananas"))
+       val testData = sc.parallelize(Seq("I like bananas", "I like bananas", "bananas are yummy", "bananas", "bananas", "bananas"))
        val modifiedData = testData.map(converter.convertTweetToVector).collect()
        modifiedData(0) shouldEqual modifiedData(1)
        modifiedData(3) shouldEqual modifiedData(4)
