@@ -87,6 +87,10 @@ object Main {
     def run(config: PSSConfig) = {
         val conf = new SparkConf().setAppName("apss test").set("spark.dynamicAllocation.initialExecutors", "5").set("spark.yarn.executor.memoryOverhead", "600")
           .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+          .set("spark.kryoserializer.buffer.max.mb","2000")
+          .set("spark.driver.maxResultSize","2000")
+
+
         val sc = new SparkContext(conf)
         val par = sc.textFile(config.input)
         println(s"taking in from ${config.input}")
@@ -102,14 +106,11 @@ object Main {
 
         val driver = new PSSDriver((config.balanceStage1, config.balanceStage2))
 
-
-
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
             driver.run(sc, vecs, buckets, threshold,debug = config.debug).count()
             val current = System.currentTimeMillis() - t1
-            //            answer.saveAsTextFile(config.output + s"/t=$threshold")
             log.info(s"breakdown: apss with threshold $threshold using $buckets buckets took ${current / 1000} seconds")
             //            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
             //            println("breakdown: top 10 similarities")

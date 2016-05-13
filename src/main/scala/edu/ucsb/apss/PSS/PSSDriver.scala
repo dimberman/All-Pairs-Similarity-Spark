@@ -88,6 +88,16 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
 
     def staticPartition(l1partitionedVectors: RDD[(Int, VectorWithNorms)], threshold: Double, sc: SparkContext) = {
         val bucketLeaders = determineBucketLeaders(l1partitionedVectors)
+        val maxes = determineBucketMaxes(l1partitionedVectors)
+
+        bucketLeaders.foreach { case(i,b) =>
+            log.info(s"breakdown: leader[$i] = $b")
+        }
+
+        maxes.foreach { case(i,b) =>
+            log.info(s"breakdown: max[$i] = $b")
+        }
+
         val sPartitioned = partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
         bucketizedVectorSizeMap = sPartitioned.countByKey().toMap.withDefault(_ => 0)
         bucketizedVectorSizeMap.toList.sortBy(_._1).foreach(println)
@@ -179,52 +189,52 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
                 val answer = new BoundedPriorityQueue[Similarity](1000)
                 //                val answer = new ArrayBuffer[Similarity]()
 
-                filtered.foreach {
-                    case (key) =>
-                        val externalVectors = manager.readVecPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.map(_._1)
-//                        println(s"comparing ${(bucket,tl)} to $key")
-                        invIter.foreach {
-                            inv =>
-                                val indexMap = InvertedIndex.extractIndexMapFromSimple(inv)
-                                val scores = new Array[Double](calcSize)
-                                val invertedIndex = inv.indices
-                                externalVectors.foreach {
-                                    case v_j =>
-                                        val VectorWithNorms(_, _, _, vec, ind_j, _) = v_j
-
-                                        calculateScores(vec, invertedIndex, indexMap, scores)
-
-                                        indexMap.foreach {
-                                            case (ind_i, l) =>
-                                                if(ind_i == ind_j || (bucket, tl) == key && ind_i < ind_j){
-
-                                                }
-                                                else if (scores(l) > threshold) {
-                                                    val c = Similarity(ind_i, ind_j.toLong, scores(l))
-                                                    answer += c
-                                                    all += 1
-                                                    reduced += 1
-                                                    numVecPair += 1
-
-                                                }
-                                                else {
-                                                    //                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
-                                                    skipped += 1
-                                                    all += 1
-                                                    numVecPair += 1
-
-                                                }
-
-                                        }
-                                        clearScoreArray(scores)
-
-                                }
-
-
-                        }
-
-
-                }
+//                filtered.foreach {
+//                    case (key) =>
+//                        val externalVectors = manager.readVecPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.map(_._1)
+////                        println(s"comparing ${(bucket,tl)} to $key")
+//                        invIter.foreach {
+//                            inv =>
+//                                val indexMap = InvertedIndex.extractIndexMapFromSimple(inv)
+//                                val scores = new Array[Double](calcSize)
+//                                val invertedIndex = inv.indices
+//                                externalVectors.foreach {
+//                                    case v_j =>
+//                                        val VectorWithNorms(_, _, _, vec, ind_j, _) = v_j
+//
+//                                        calculateScores(vec, invertedIndex, indexMap, scores)
+//
+//                                        indexMap.foreach {
+//                                            case (ind_i, l) =>
+//                                                if(ind_i == ind_j || (bucket, tl) == key && ind_i < ind_j){
+//
+//                                                }
+//                                                else if (scores(l) > threshold) {
+//                                                    val c = Similarity(ind_i, ind_j.toLong, scores(l))
+//                                                    answer += c
+//                                                    all += 1
+//                                                    reduced += 1
+//                                                    numVecPair += 1
+//
+//                                                }
+//                                                else {
+//                                                    //                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
+//                                                    skipped += 1
+//                                                    all += 1
+//                                                    numVecPair += 1
+//
+//                                                }
+//
+//                                        }
+//                                        clearScoreArray(scores)
+//
+//                                }
+//
+//
+//                        }
+//
+//
+//                }
                 val time = (System.currentTimeMillis() - start).toDouble / 1000
                 //                driverAccum += s"breakdown: partition ${(inv.bucket,inv.tl)} took $time seconds to calculate $numVecPair pairs from $numBuc buckets"
                 driverAccum += DebugVal((bucket, tl), time, numVecPair, numBuc)

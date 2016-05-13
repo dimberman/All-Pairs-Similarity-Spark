@@ -62,6 +62,12 @@ object StaticPartitioner extends Serializable {
     }
 
 
+    def determineBucketMaxes(r: RDD[(Int, VectorWithNorms)]): Array[(Int, Double)] = {
+        val answer = r.map { case (k, v) => (k, v.lInf) }.reduceByKey((a, b) => math.max(a, b)).collect().sortBy(_._1)
+        answer
+    }
+
+
     def determineIdealVectors(r: RDD[(Int, VectorWithNorms)]): Array[(Int, SparseVector)] = {
         r.aggregateByKey(MMap[Int, Double]())(addVector, mergeMaps)
           .mapValues(map => new SparseVector(map.size, map.keys.toArray, map.values.toArray))
@@ -103,9 +109,9 @@ object StaticPartitioner extends Serializable {
                             while (res < bucket && tMax > leaders(res)._2) {
                                 res += 1
                             }
-//                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap) < threshold) {
-//                                res += 1
-//                            }
+                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap) < threshold) {
+                                res += 1
+                            }
 //                            if(getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res-1), idealMap) > threshold && bucket != (res-1))
 //                                println(s"maximal ideal: ($bucket, $res) " + getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap))
                             res -=1
