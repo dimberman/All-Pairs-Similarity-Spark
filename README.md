@@ -21,9 +21,8 @@ spark-submit --class edu.ucsb.apss.Main apss-1.0.jar
 The package comes with the following options
 
 
-| -i       	|      --input      	|                               The input file 	|
-|----------	|:-----------------:	|---------------------------------------------:	|
-| -t       	|    --threshold    	|       The threshold for PSS, defaults to 0.9 	|
-| -h       	| --histogram-title 	| Title for histogram, defaults to "histogram" 	|
-| col 3 is 	|   right-aligned   	|                                           $1 	|
-        
+| -i |      --input      |                               The input file |
+|----|:-----------------:|---------------------------------------------:|
+| -t |    --threshold    |       The threshold for PSS, defaults to 0.9 |
+| -n |    --numLayers    |     Number of layers for PSS. Defaults to 21 |
+| -h | --histogram-title | Title for histogram, defaults to "histogram" |
