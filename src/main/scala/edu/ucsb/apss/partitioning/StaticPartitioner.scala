@@ -92,45 +92,49 @@ object StaticPartitioner extends Serializable {
     }
 
 
-    def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, VectorWithNorms)], leaders: Array[(Int, Double)], threshold: Double, sc: SparkContext): RDD[((Int, Int), VectorWithNorms)] = {
+    def tieVectorsToHighestBuckets(inputVectors: RDD[(Int, VectorWithNorms)], sumLeaders: Array[(Int, Double)], maxLeaders: Array[(Int, Double)], threshold: Double, sc: SparkContext): RDD[((Int, Int), VectorWithNorms)] = {
         val idealVectors = determineIdealVectors(inputVectors).toMap
 
-        inputVectors.mapPartitions{
+        inputVectors.mapPartitions {
             iter =>
-                val idealMap:MMap[(Int,Int), Double] = MMap()
-                iter.map{
-                    case(bucket,vec) =>
+                val idealMap: MMap[(Int, Int), Double] = MMap()
+                iter.map {
+                    case (bucket, vec) =>
                         val infNorm = vec.lInf
+                        val l1norm = vec.l1
+
                         val tMax = threshold / infNorm
+                        val tSum = threshold / l1norm
+
                         var res = 0
-                        if (tMax <= leaders.head._2 || bucket==0) res = bucket
-                        else {
-                            while (res < bucket && tMax > leaders(res)._2) {
-                                res += 1
-                            }
-//                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap) < threshold) {
-//                                res += 1
-//                            }
-//                            if(getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res-1), idealMap) > threshold && bucket != (res-1))
-//                                println(s"maximal ideal: ($bucket, $res) " + getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap))
-                            res -=1
+                        while (
+                            tMax > sumLeaders(res)._2 ||
+                              tSum > maxLeaders(res)._2 ||
+                              threshold / maxLeaders(res)._2 > l1norm ||
+                              threshold / sumLeaders(res)._2 > vec.lInf) {
+                            res += 1
                         }
+                        //                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap) < threshold) {
+                        //                                res += 1
+                        //                            }
+                        //                            if(getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res-1), idealMap) > threshold && bucket != (res-1))
+                        //                                println(s"maximal ideal: ($bucket, $res) " + getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap))
+                        res -= 1
+                        if(res < 0) res = bucket
                         val ans = res
                         require(ans != -1, "something went wrong and there is a bucket that was never given a tl")
                         vec.associatedLeader = ans
-                        ((bucket,ans),vec)
+                        ((bucket, ans), vec)
                 }
         }
     }
 
 
-
-
-    def getMaximalSimilarity(key:(Int,Int), vectorA:SparseVector, vectorB:SparseVector, idealMap:MMap[(Int,Int), Double]):Double = {
-        if(idealMap.contains(key)) idealMap(key)
-        else{
+    def getMaximalSimilarity(key: (Int, Int), vectorA: SparseVector, vectorB: SparseVector, idealMap: MMap[(Int, Int), Double]): Double = {
+        if (idealMap.contains(key)) idealMap(key)
+        else {
             val ans = PartitionUtil.dotProduct(vectorA, vectorB)
-            idealMap+=(key -> ans)
+            idealMap += (key -> ans)
             ans
         }
     }
