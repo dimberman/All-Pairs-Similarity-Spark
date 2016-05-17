@@ -52,6 +52,11 @@ object PartitionUtil extends Serializable {
     def normalizeVector(vec: SparseVector): SparseVector = {
         val norm = normalizer(vec)
         for (i <- vec.values.indices) vec.values(i) = vec.values(i) / norm
+
+        // v_i * v_i should = 1. If not, there is an error in normalization.
+        val identitySimilarity = (vec.values zip vec.values map {case (a ,b) => a * b}).sum
+        require(identitySimilarity > .99 && identitySimilarity < 1.01)
+
         new SparseVector(vec.size, vec.indices, vec.values)
 
     }

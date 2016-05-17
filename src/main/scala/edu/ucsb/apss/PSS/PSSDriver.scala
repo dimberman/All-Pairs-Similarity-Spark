@@ -54,9 +54,13 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
 
 
     def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true) = {
+
         debugPSS = debug
-        val l1partitionedVectors = bucketizeVectors(sc, vectors, numBuckets, threshold)
-        val staticPartitionedVectors = staticPartition(l1partitionedVectors, threshold, sc)
+
+        val lInfpartitionedVectors = infBucketizeVectors(sc, vectors, numBuckets, threshold)
+        val l1partitionedVectors =bucketizeVectors(sc, vectors, numBuckets, threshold)
+
+        val staticPartitionedVectors = infStaticPartition(lInfpartitionedVectors, l1partitionedVectors, threshold, sc)
 
         if (debugPSS) logStaticPartitioning(staticPartitionedVectors, threshold, numBuckets)
 
@@ -86,9 +90,27 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
         l1partitionedVectors
     }
 
+
+    def infBucketizeVectors(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double): RDD[(Int, VectorWithNorms)] = {
+        val count = vectors.count
+
+        numVectors = count
+        numComparisons = (numVectors * (numVectors - 1)) / 2
+
+        val normalizedVectors = vectors.map(normalizeVector)
+        val indexedNormalizedVecs = recordIndex(normalizedVectors)
+          .repartition(numBuckets)
+
+        val l1partitionedVectors = partitionByLInfSort(indexedNormalizedVecs, numBuckets, count).mapValues(extractUsefulInfo)
+        bucketSizes = l1partitionedVectors.countByKey().toList.sortBy(_._1).map(_._2.toInt)
+        l1partitionedVectors
+    }
+
     def staticPartition(l1partitionedVectors: RDD[(Int, VectorWithNorms)], threshold: Double, sc: SparkContext) = {
         val bucketLeaders = determineBucketLeaders(l1partitionedVectors)
         val maxes = determineBucketMaxes(l1partitionedVectors)
+        val mins = determineBucketMaxMins(l1partitionedVectors)
+
 
         bucketLeaders.foreach { case(i,b) =>
             log.info(s"breakdown: leader[$i] = $b")
@@ -98,12 +120,53 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
             log.info(s"breakdown: max[$i] = $b")
         }
 
+        mins.foreach { case(i,b) =>
+            log.info(s"breakdown: min[$i] = $b")
+        }
+
+        mins.foreach { case(i,b) =>
+            log.info(s"breakdown: tmax[$i] = ${.9/b}")
+        }
+
+
         val sPartitioned = partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, threshold, sc)
         bucketizedVectorSizeMap = sPartitioned.countByKey().toMap.withDefault(_ => 0)
         bucketizedVectorSizeMap.toList.sortBy(_._1).foreach(println)
         sPartitioned
 
     }
+
+    def infStaticPartition(lInfPartitionedVectors: RDD[(Int, VectorWithNorms)], l1partitionedVectors:RDD[(Int, VectorWithNorms)] , threshold: Double, sc: SparkContext) = {
+        val bucketLeaders = determineBucketLeaders(lInfPartitionedVectors)
+        val maxes = determineBucketMaxes(lInfPartitionedVectors)
+        val mins = determineBucketMaxMins(lInfPartitionedVectors)
+
+//
+        bucketLeaders.foreach { case(i,b) =>
+            log.info(s"breakdown: leader[$i] = $b")
+        }
+
+        maxes.foreach { case(i,b) =>
+            log.info(s"breakdown: max[$i] = $b")
+        }
+
+        mins.foreach { case(i,b) =>
+            log.info(s"breakdown: min[$i] = $b")
+        }
+
+        maxes.foreach { case(i,b) =>
+            log.info(s"breakdown: tmax[$i] = ${.9/b}")
+        }
+
+
+        val sPartitioned = partitioner.tieVectorsToHighestInfBuckets(lInfPartitionedVectors, maxes, bucketLeaders, threshold, sc)
+        bucketizedVectorSizeMap = sPartitioned.countByKey().toMap.withDefault(_ => 0)
+        bucketizedVectorSizeMap.toList.sortBy(_._1).foreach(println)
+        sPartitioned
+
+    }
+
+
 
 
     def balancePSS(invertedIndexes: RDD[((Int, Int), Iterable[SimpleInvertedIndex])], numBuckets: Int, balance: Boolean = true): Map[(Int, Int), List[(Int, Int)]] = {
@@ -265,12 +328,12 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
 
 
 
-        for( i <- 0 to numBuckets-1) {
-            val bSize = List.range(0,i+1).map( x => bucketizedVectorSizeMap(i,x)).sum
-//            println(s"bsize: $bSize")
-            require(bucketSizes(i) == bSize, s"the sum of the bucketizedVectorMap values did not equal the bucketSize. Bsize: ${bucketSizes(i)}, parts: ${bucketizedVectorSizeMap.filterKeys(_._1 == i)}")
-        }
-
+//        for( i <- 0 to numBuckets-1) {
+//            val bSize = List.range(0,i+1).map( x => bucketizedVectorSizeMap(i,x)).sum
+////            println(s"bsize: $bSize")
+//            require(bucketSizes(i) == bSize, s"the sum of the bucketizedVectorMap values did not equal the bucketSize. Bsize: ${bucketSizes(i)}, parts: ${bucketizedVectorSizeMap.filterKeys(_._1 == i)}")
+//        }
+//
 
         val b = bucketizedVectorSizeMap
 
