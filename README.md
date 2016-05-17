@@ -6,7 +6,6 @@ All-Pairs-Similarity-Search is an important function for clustering similar obje
 - recommendation systems (e.g. Netflix finding users similar to you so they can recommend movies)
 - fraud/plagiarism detection (finding near-duplicate essays)
 - spam detection (e.g. google comparing every email recieved by a user to known spam-emails)
-- 
 
 # Building
 
