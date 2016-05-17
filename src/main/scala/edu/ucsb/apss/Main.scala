@@ -93,7 +93,7 @@ object Main {
         println(s"default par: ${sc.defaultParallelism}")
         val executionValues = config.thresholds
         val buckets = config.numLayers
-        val vecs = par.map((new TextToVectorConverter).convertTweetToVector)
+        val vecs = par.map((new TextToVectorConverter).convertTweetToVector(_))
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
         val actualStaticPartitioningValues = ArrayBuffer[Long]()
         val dynamicPartitioningValues = ArrayBuffer[Long]()

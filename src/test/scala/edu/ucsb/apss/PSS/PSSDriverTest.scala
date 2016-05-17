@@ -120,9 +120,9 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
 
     it should "b" in {
-        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
+        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/10k-clueweb.txt")
         val converter = new TextToVectorConverter
-        val vecs =   par.map(converter.convertTweetToVector(_))
+        val vecs =   par.map(converter.convertTweetToVector(_,maxWeight = 3, removeSWords = true))
         val executionValues = List(.9)
         val buckets = 41
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
