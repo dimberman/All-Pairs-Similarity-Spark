@@ -20,17 +20,10 @@ spark-submit --class edu.ucsb.apss.Main apss-1.0.jar
 
 The package comes with the following options
 
--i <value> | --input <value>
-    -input is the input file
--t <value> | --threshold <value>
-    - threshold is the threshold for PSS, defaults to 0.9
--n <value> | --numLayers <value>
-    - number of layers in PSS, defaults to 21
--o <value> | --output <value>
-    output directory for APSS, defaults to /user/output
--h <value> | --histogram-title <value>
-    title for histogram, defaults to "histogram"
--d <value> | --debug <value>
-    toggle debug logging. defaults to false
-    
+
+| -i       	|      --input      	|                               The input file 	|
+|----------	|:-----------------:	|---------------------------------------------:	|
+| -t       	|    --threshold    	|       The threshold for PSS, defaults to 0.9 	|
+| -h       	| --histogram-title 	| Title for histogram, defaults to "histogram" 	|
+| col 3 is 	|   right-aligned   	|                                           $1 	|
         
