@@ -2,7 +2,7 @@ package edu.ucsb.apss.lsh
 
 import edu.ucsb.apss.Context
 import edu.ucsb.apss.lsh.SparseVectorBucketizer
-import edu.ucsb.apss.preprocessing.TweetToVectorConverter
+import edu.ucsb.apss.preprocessing.TextToVectorConverter
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 /**
@@ -12,7 +12,7 @@ class LshAllPairsDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
     val sc = Context.sc
     val anchors = Array("banana banana banana", "grape grape grape", "onion onion onion")
-    val converter = new TweetToVectorConverter
+    val converter = new TextToVectorConverter
     val bucketizer = new SparseVectorBucketizer(anchors.map(converter.convertTweetToVector))
     val driver =  LshAllPairsDriver
 

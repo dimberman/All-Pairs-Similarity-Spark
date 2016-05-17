@@ -1,6 +1,6 @@
 package edu.ucsb.apss
 
-import edu.ucsb.apss.preprocessing.TweetToVectorConverter
+import edu.ucsb.apss.preprocessing.TextToVectorConverter
 import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
 import org.apache.spark.{SparkContext, SparkConf}
 

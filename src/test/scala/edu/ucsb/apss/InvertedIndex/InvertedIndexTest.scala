@@ -2,7 +2,7 @@ package edu.ucsb.apss.InvertedIndex
 
 import edu.ucsb.apss.Context
 import edu.ucsb.apss.InvertedIndex.InvertedIndex
-import edu.ucsb.apss.preprocessing.TweetToVectorConverter
+import edu.ucsb.apss.preprocessing.TextToVectorConverter
 import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
 import edu.ucsb.apss.util.{PartitionUtil, VectorWithNorms}
 import org.apache.spark.mllib.linalg.SparseVector

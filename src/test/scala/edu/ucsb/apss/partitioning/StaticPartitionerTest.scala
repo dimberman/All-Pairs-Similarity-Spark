@@ -1,7 +1,7 @@
 package edu.ucsb.apss.partitioning
 
 import edu.ucsb.apss.Context
-import edu.ucsb.apss.preprocessing.TweetToVectorConverter
+import edu.ucsb.apss.preprocessing.TextToVectorConverter
 import org.apache.spark.mllib.linalg.SparseVector
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
@@ -79,7 +79,7 @@ class StaticPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter {
     }
 //
     "tieVectorsToHighestBuckets" should "take every vector and tie it to the bucket which has the closest but < leader to its lInf" in {
-        val rdd = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/10-tweets-bag.txt").map((new TweetToVectorConverter).convertTweetToVector)
+        val rdd = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/10-tweets-bag.txt").map((new TextToVectorConverter).convertTweetToVector)
         val normalized = partitioner.normalizeVectors(rdd)
         val bucketizedVectors = partitioner.partitionByL1Sort(partitioner.recordIndex(normalized), 4, normalized.count()).mapValues(extractUsefulInfo)
         bucketizedVectors.collect().foreach(a => println(s"bucket: ${a._1}, l1: ${a._2.l1} vec:${a._2}"))
