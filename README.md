@@ -10,7 +10,7 @@ All-Pairs-Similarity-Search is an important function for clustering similar obje
 # Building
 
 
-This package is set up with sbt and assembly. run sbt clean assembly to create a jar in the target/scala folder.
+This package is set up with sbt and assembly. Run sbt clean assembly to create a jar in the target/scala folder. Requires Spark 1.5.2.
 
 
 #running
