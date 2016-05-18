@@ -1,7 +1,7 @@
 package edu.ucsb.apss.bucketization
 
 import edu.ucsb.apss.lsh.SparseVectorBucketizer
-import edu.ucsb.apss.preprocessing.TweetToVectorConverter
+import edu.ucsb.apss.preprocessing.TextToVectorConverter
 import org.apache.spark.mllib.linalg.SparseVector
 
 import org.scalatest.{Matchers, BeforeAndAfter, FlatSpec}
@@ -31,7 +31,7 @@ class SparseVectorBucketizerTest extends FlatSpec with Matchers with BeforeAndAf
 
   "cosineSimilarity" should "read in a sparse vector and determine the cosine similarity of that vector" in {
     val test = new SparseVectorBucketizer(inputList)
-    val converter = new TweetToVectorConverter
+    val converter = new TextToVectorConverter
     test.calculateCosineSimilarity(dummySparse1, dummySparse2) shouldEqual 0.0
     test.calculateCosineSimilarity(dummySparse1, dummySparse3) should be  (1.0 +- .000001)
     test.calculateCosineSimilarity(dummySparse1, dummySparse4) should be  (.6666666 +- .000001 )

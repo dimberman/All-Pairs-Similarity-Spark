@@ -2,7 +2,7 @@ package edu.ucsb.apss.lsh
 
 import edu.ucsb.apss.Context
 import edu.ucsb.apss.lsh.SparseVectorBucketizer
-import edu.ucsb.apss.preprocessing.TweetToVectorConverter
+import edu.ucsb.apss.preprocessing.TextToVectorConverter
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 /**
@@ -12,12 +12,12 @@ class LshAllPairsDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
     val sc = Context.sc
     val anchors = Array("banana banana banana", "grape grape grape", "onion onion onion")
-    val converter = new TweetToVectorConverter
-    val bucketizer = new SparseVectorBucketizer(anchors.map(converter.convertTweetToVector))
+    val converter = new TextToVectorConverter
+    val bucketizer = new SparseVectorBucketizer(anchors.map(converter.convertTweetToVector(_)))
     val driver =  LshAllPairsDriver
 
     val input = Seq("banana banana grape grape", "banana banana onion onion", "grape grape grape", "grape onion onion")
-          .map(converter.convertTweetToVector)
+          .map(converter.convertTweetToVector(_))
 
     "bucketizeTweet" should "take in a tweet and return a key/value of the bucket to tweet" in {
 
@@ -33,8 +33,8 @@ class LshAllPairsDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     }
 
 
-    val answerVals =  Seq("a a a a", "a a a b").map(converter.convertTweetToVector)
-    val testBucketValues = sc.parallelize(Seq("a a a a", "a a a b", "a a b b c", "b b b b").map(converter.convertTweetToVector))
+    val answerVals =  Seq("a a a a", "a a a b").map(converter.convertTweetToVector(_))
+    val testBucketValues = sc.parallelize(Seq("a a a a", "a a a b", "a a b b c", "b b b b").map(converter.convertTweetToVector(_)))
     //TODO bucketizer should not have to do cosine similarity
     "findBestPairForBucket" should "take in a bucket and find the most similar pair within that bucket" in {
         val answer = driver.findBestPairForBucket(testBucketValues, bucketizer).get
