@@ -83,24 +83,26 @@ class StaticPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter {
         val normalized = partitioner.normalizeVectors(rdd)
         val bucketizedVectors = partitioner.partitionByL1Sort(partitioner.recordIndex(normalized), 4, normalized.count()).mapValues(extractUsefulInfo)
         bucketizedVectors.collect().foreach(a => println(s"bucket: ${a._1}, l1: ${a._2.l1} vec:${a._2}"))
-        val leaders = partitioner.determineBucketLeaders(bucketizedVectors).sortBy(a => a._1)
-        leaders.foreach(a => println(s"leader ${a._1}: ${a._2}"))
+        val sumLeaders = partitioner.determineBucketLeaders(bucketizedVectors).sortBy(a => a._1)
+        val maxLeaders = partitioner.determineBucketMaxes(bucketizedVectors).sortBy(a => a._1)
+
+        sumLeaders.foreach(a => println(s"leader ${a._1}: ${a._2}"))
         val threshold = .9
-        val tiedVectors = partitioner.tieVectorsToHighestBuckets(bucketizedVectors, leaders, threshold, sc)
+        val tiedVectors = partitioner.tieVectorsToHighestBuckets(bucketizedVectors, sumLeaders, maxLeaders, threshold, sc)
 //        leaders.foreach{case (bucket, v) => println(s"leader for bucket $bucket: $v") }
         val collectedVectors = tiedVectors.collect()
         collectedVectors.foreach {
             case ((bucketIndex, tiedLeader), dr) =>
                val tmax =threshold/dr.lInf
-                if(tmax<leaders(0)._2) {
-                    println(s"${threshold}/${dr.lInf} = $tmax, which is less than ${leaders(0)._2}, therefore we place in G_($bucketIndex,$tiedLeader)")
-                    bucketIndex  shouldEqual tiedLeader
-                }
-                else {
-                    println(s"$threshold/${dr.lInf} = $tmax, which is greater than than ${leaders(tiedLeader)._2}, therefore we place in G_($bucketIndex,$tiedLeader)")
-
-//                    tmax should be > leaders(tiedLeader)._2
-                }
+//                if(tmax<sumLeaders(0)._2) {
+//                    println(s"${threshold}/${dr.lInf} = $tmax, which is less than ${sumLeaders(0)._2}, therefore we place in G_($bucketIndex,$tiedLeader)")
+//                    bucketIndex  shouldEqual tiedLeader
+//                }
+//                else {
+//                    println(s"$threshold/${dr.lInf} = $tmax, which is greater than than ${sumLeaders(tiedLeader)._2}, therefore we place in G_($bucketIndex,$tiedLeader)")
+//
+////                    tmax should be > leaders(tiedLeader)._2
+//                }
         }
     }
 
