@@ -3,6 +3,7 @@ package edu.ucsb.apss.preprocessing
 import org.apache.spark.mllib.feature.HashingTF
 import org.apache.spark.mllib.linalg.{Vectors, Vector, SparseVector}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.util.Utils
 
 import scala.collection.mutable
 
@@ -11,6 +12,7 @@ import scala.collection.mutable
   */
 class TextToVectorConverter extends Serializable{
 
+  val numFeatures = 10000
   val stopWords = Set("the", "and",
   "a",
   "about",
@@ -190,7 +192,12 @@ class TextToVectorConverter extends Serializable{
   def convertTweetToVector(s:String, topToRemove:Int = 0, removeSWords:Boolean = false, maxWeight:Int = Int.MaxValue):SparseVector = {
     val table =  generateTable(maxWeight)
     val filtered = if(removeSWords) removeStopWords(s.split(" ").toSeq) else s.split(" ")
-    table.transform(s.split(" ").toSeq).toSparse
+    val (vec, tf) = transform(s.split(" ").toSeq, maxWeight)
+    val ans = vec.toSparse
+    val topN = tf.toList.sortBy(-_._2).take(topToRemove).toMap
+    val topIndexes = ans.indices.zipWithIndex.filter(a => topN.contains(a._1)).map(_._2)
+    for ( i <- topIndexes) ans.values(i) == 0.0
+    ans
   }
 
 
@@ -200,18 +207,29 @@ class TextToVectorConverter extends Serializable{
       s.filterNot(stopWords.contains)
   }
 
+
+  def nonNegativeMod(x: Int, mod: Int): Int = {
+    val rawMod = x % mod
+    rawMod + (if (rawMod < 0) mod else 0)
+  }
+
+
+  def indexOf(term: Any): Int = nonNegativeMod(term.##, numFeatures)
+
+
+  def transform(document: Iterable[_], maxWeight:Int): (Vector, mutable.HashMap[Int,Double]) = {
+    val termFrequencies = mutable.HashMap.empty[Int, Double]
+    document.foreach { term =>
+      val i = indexOf(term)
+      val t= termFrequencies.getOrElse(i, 0.0)
+      if (t < maxWeight)
+        termFrequencies.put(i, termFrequencies.getOrElse(i, 0.0) + 1.0)
+    }
+    (Vectors.sparse(numFeatures, termFrequencies.toSeq), termFrequencies)
+  }
   def generateTable(maxWeight:Int) = {
     new HashingTF(10000){
-      override def transform(document: Iterable[_]): Vector = {
-        val termFrequencies = mutable.HashMap.empty[Int, Double]
-        document.foreach { term =>
-          val i = indexOf(term)
-          val t= termFrequencies.getOrElse(i, 0.0)
-          if (t < maxWeight)
-            termFrequencies.put(i, termFrequencies.getOrElse(i, 0.0) + 1.0)
-        }
-        Vectors.sparse(numFeatures, termFrequencies.toSeq)
-      }
+
     }
   }
 

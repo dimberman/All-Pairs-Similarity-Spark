@@ -61,6 +61,12 @@ object StaticPartitioner extends Serializable {
         answer
     }
 
+    def determineBucketMaxes(r: RDD[(Int, VectorWithNorms)]): Array[(Int, Double)] = {
+        val answer = r.map { case (k, v) => (k, v.lInf) }.reduceByKey((a, b) => math.max(a, b)).collect().sortBy(_._1)
+        answer
+    }
+
+
 
     def determineIdealVectors(r: RDD[(Int, VectorWithNorms)]): Array[(Int, SparseVector)] = {
         r.aggregateByKey(MMap[Int, Double]())(addVector, mergeMaps)
