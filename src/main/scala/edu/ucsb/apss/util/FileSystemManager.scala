@@ -1,6 +1,7 @@
 package edu.ucsb.apss.util
 
 import edu.ucsb.apss.InvertedIndex.SimpleInvertedIndex
+import edu.ucsb.apss.PSS.Similarity
 import edu.ucsb.apss.partitioning.PartitionHasher
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -11,7 +12,7 @@ import org.apache.spark.{SerializableWritable, SparkEnv, TaskContext}
 /**
   * Created by dimberman on 4/14/16.
   */
-class FileSystemManager(local:Boolean = false) extends Serializable {
+case class FileSystemManager(local:Boolean = false, outputDir: String = "") extends Serializable {
 
 
     def readVecPartition(key: (Int, Int), id: String, broadcastedConf: Broadcast[SerializableWritable[Configuration]], taskContext: TaskContext): Iterator[VectorWithNorms] = {
@@ -118,6 +119,26 @@ class FileSystemManager(local:Boolean = false) extends Serializable {
             val output = fs.create(path, false, bufferSize)
             val serialized = env.serializer.newInstance().serializeStream(output)
             serialized.writeAll(f.toIterator)
+            output.close()
+        }
+
+
+    }
+
+
+    def writeSimilaritiesToFile(key: (Int, Int), f: Seq[Similarity], id: String, BVConf: Broadcast[SerializableWritable[Configuration]], outputDir:String) = {
+        val partitionFile = s"$outputDir/$id/" + PartitionHasher.partitionHash(key)
+        val path = new Path(partitionFile)
+        val fs = path.getFileSystem(BVConf.value.value)
+
+        val env = SparkEnv.get
+        val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
+        if (!fs.exists(path)) {
+            val output = fs.create(path, false, bufferSize)
+            for(s <- f){
+                val out = s.toString + "\n"
+                output.writeBytes(out)
+            }
             output.close()
         }
 

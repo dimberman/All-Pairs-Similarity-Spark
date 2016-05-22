@@ -100,7 +100,7 @@ object Main {
         val timings = ArrayBuffer[Long]()
 
 
-        val driver = new PSSDriver((config.balanceStage1, config.balanceStage2))
+        val driver = new PSSDriver((config.balanceStage1, config.balanceStage2),config.output)
 
 
 

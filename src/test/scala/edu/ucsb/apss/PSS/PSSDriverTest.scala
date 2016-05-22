@@ -16,7 +16,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
     val sc = Context.sc
 
-    val driver = new PSSDriver
+    val driver = new PSSDriver(outputDirectory = "/Users/dimberman/output")
 
 
     "apss" should "calculate the most similar vectors" in {
@@ -73,10 +73,11 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
     it should "a" in {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
+
         val converter = new TextToVectorConverter
         val vecs =   par.map(converter.convertTweetToVector(_))
         val executionValues = List(.9)
-        val buckets = 21
+        val buckets = 41
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
         val actualStaticPartitioningValues = ArrayBuffer[Long]()
         val dynamicPartitioningValues = ArrayBuffer[Long]()
