@@ -1,7 +1,7 @@
 package edu.ucsb.apss.lsh
 
 import edu.ucsb.apss.lsh.BucketizedRow
-import edu.ucsb.apss.preprocessing.TweetToVectorConverter
+import edu.ucsb.apss.preprocessing.TextToVectorConverter
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD
@@ -18,7 +18,7 @@ import scala.collection.mutable.ListBuffer
 object LshAllPairsDriver {
 
 
-    val converter = new TweetToVectorConverter
+    val converter = new TextToVectorConverter
 
 
     def run(tweets: RDD[String], numBuckets: Int) = {
@@ -32,7 +32,7 @@ object LshAllPairsDriver {
 
 
     def runHoldens(tweets: RDD[String], numBuckets: Int) = {
-        val convertedTweets = tweets.map(converter.convertTweetToVector)
+        val convertedTweets = tweets.map(converter.convertTweetToVector(_))
         val b = convertedTweets.collect()
         val bucketizer = createBucket(convertedTweets, numBuckets)
         val bucketizedTweets = convertedTweets.map(bucketizeTweet(_, bucketizer)).repartition(numBuckets).persist()
@@ -55,7 +55,7 @@ object LshAllPairsDriver {
 
 
     def apss(tweets: RDD[String], numBuckets: Int) = {
-        val convertedTweets = tweets.map(converter.convertTweetToVector)
+        val convertedTweets = tweets.map(converter.convertTweetToVector(_))
         val bucketizer = createBucket(convertedTweets, numBuckets)
         val bucketizedTweets = convertedTweets.map(bucketizeTweet(_, bucketizer)).persist()
         val anchors = bucketizedTweets.keys.distinct().collect()
