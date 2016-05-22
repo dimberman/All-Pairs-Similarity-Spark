@@ -6,8 +6,6 @@ import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
 import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
 
 import scala.collection.mutable.ArrayBuffer
-import java.io.File
-import org.apache.commons.io.FileUtils;
 
 
 /**
@@ -16,16 +14,11 @@ import org.apache.commons.io.FileUtils;
 class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     import edu.ucsb.apss.util.PartitionUtil._
 
-    val outputDir = "/tmp/output"
     val sc = Context.sc
 
+    val outputDir = "/Users/dimberman/output"
     val driver = new PSSDriver(outputDirectory = "/Users/dimberman/output")
 
-
-    after {
-        val f = new File(outputDir)
-        FileUtils.deleteDirectory(f)
-    }
 
     "apss" should "calculate the most similar vectors" in {
         val par = sc.parallelize(Seq("a a a a", "a a b b", "a b f g ", "b b b b"))
@@ -60,29 +53,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
 
 
-    ignore should "contian only correct output" in {
-        val outputDir = s"${this.outputDir}/correct"
-        val d = new PSSDriver(outputDirectory = outputDir)
 
-        val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
-        val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
-        val expected = e.toMap
-
-        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
-        val vecs = par.map(BagOfWordToVectorConverter.convert)
-//        val v = vecs.collect()
-//          .map(_.toDense)
-//        v.foreach(println)
-        d.run(sc, vecs, 5, 0.8).collect()
-        val answer = sc.textFile(outputDir+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect()
-        println(s"count: ${answer.size}")
-        answer.foreach{
-            case(i,j) =>
-                println(s"for pair $i, expected: ${expected(i)} got: $j")
-                expected(i) shouldEqual (j +- .011)
-        }
-
-    }
 
     it should "a" in {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
@@ -132,6 +103,29 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         println("breakdown:timing," + timings.mkString(","))
     }
 
+    ignore should "contian only correct output" in {
+        val outputDir = s"${this.outputDir}/correct"
+        val d = new PSSDriver(outputDirectory = outputDir)
+
+        val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
+        val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
+        val expected = e.toMap
+
+        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
+        val vecs = par.map(BagOfWordToVectorConverter.convert)
+        //        val v = vecs.collect()
+        //          .map(_.toDense)
+        //        v.foreach(println)
+        d.run(sc, vecs, 5, 0.8).collect()
+        val answer = sc.textFile(outputDir+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect()
+        println(s"count: ${answer.size}")
+        answer.foreach{
+            case(i,j) =>
+                //                println(s"for pair $i, expected: ${expected(i)} got: $j")
+                expected(i) shouldEqual (j +- .011)
+        }
+
+    }
 
 
     ignore should "b" in {

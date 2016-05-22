@@ -109,11 +109,7 @@ object Main {
             val t1 = System.currentTimeMillis()
             driver.run(sc, vecs, buckets, threshold,debug = config.debug).count()
             val current = System.currentTimeMillis() - t1
-            //            answer.saveAsTextFile(config.output + s"/t=$threshold")
             log.info(s"breakdown: apss with threshold $threshold using $buckets buckets took ${current / 1000} seconds")
-            //            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
-            //            println("breakdown: top 10 similarities")
-            //            top.foreach(s => println(s"breakdown: $s"))
             theoreticalStaticPartitioningValues.append(driver.theoreticalStaticPairReduction)
             actualStaticPartitioningValues.append(driver.actualStaticPairReduction)
             dynamicPartitioningValues.append(driver.dParReduction)

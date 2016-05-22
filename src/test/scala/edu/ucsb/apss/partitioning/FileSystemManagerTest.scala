@@ -4,7 +4,6 @@ import java.io.File
 import java.nio.file.{Files, Paths}
 
 import edu.ucsb.apss.Context
-import edu.ucsb.apss.InvertedIndex.{FeaturePair, SimpleInvertedIndex}
 import edu.ucsb.apss.util.{VectorWithNorms, FileSystemManager}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -21,9 +20,8 @@ class FileSystemManagerTest extends FlatSpec with Matchers with BeforeAndAfter {
     val sc = Context.sc
     val path = (s:String, i:(Int,Int)) => s"/tmp/$s/${PartitionHasher.partitionHash(i)}"
 
-    val bvConf = sc.broadcast(new SerializableWritable(sc.hadoopConfiguration) )
     val k = (5, 5)
-    val bucketizedVector = Seq( new VectorWithNorms(1, 1, 1, new SparseVector(1, Array(2), Array(3)), 1), new VectorWithNorms(1, 1, 1, new SparseVector(4, Array(5), Array(6)), 2)).toIterable
+    val bucketizedVector = Seq( new VectorWithNorms(1, 1, 1, new SparseVector(1, Array(2), Array(3)), 1)).toIterable
 
     "Partition Manager" should "write to file" in {
 
@@ -78,7 +76,6 @@ class FileSystemManagerTest extends FlatSpec with Matchers with BeforeAndAfter {
 
 
 
-
     it should "handle RDDs" in {
         val rdd = sc.parallelize(Seq((k,bucketizedVector.head)))
         manager.writePartitionsToFile(rdd)
@@ -90,17 +87,6 @@ class FileSystemManagerTest extends FlatSpec with Matchers with BeforeAndAfter {
         manager.readInvPartition(k,sc.applicationId, BVConf, org.apache.spark.TaskContext.get()).foreach(println)
         f
         f.delete()
-    }
-
-
-    "writeInvertedIndexesToFile" should "convert the list to a SimpleInvertedIndex" in {
-        manager.writeVecFileToInvertedIndexes(k, bucketizedVector.toIterable, sc.applicationId, bvConf)
-        val answer = manager.readInvFile(new Path(path(sc.applicationId, k)),bvConf, org.apache.spark.TaskContext.get())
-        val expected = List(SimpleInvertedIndex(Map(2 -> List(FeaturePair(1,3.0)), 5 -> List(FeaturePair(2,6.0)))))
-        answer.toList shouldEqual expected
-        val f = new File(path(sc.applicationId, k))
-        f.delete()
-
     }
 
 }
