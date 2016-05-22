@@ -53,7 +53,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
     type BucketizedVector = ((Int, Int), VectorWithNorms)
 
 
-    def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true) = {
+    def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 1000, debug: Boolean = true) = {
         debugPSS = debug
         val l1partitionedVectors = bucketizeVectors(sc, vectors, numBuckets, threshold)
         val staticPartitionedVectors = staticPartition(l1partitionedVectors, threshold, sc)
@@ -211,7 +211,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
                                                     answer += c
                                                     answerIndex +=1
                                                     if (answerIndex > 100){
-                                                        manager.writeSimilaritiesToFile(key, answer, id, BVConf, manager.outputDir)
+//                                                        manager.writeSimilaritiesToFile(key, answer, id, BVConf, manager.outputDir)
                                                         answer.clear()
                                                         answerIndex = 0
                                                     }
@@ -233,7 +233,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
 
 
                                         if(answer.nonEmpty){
-                                            manager.writeSimilaritiesToFile(key, answer, id, BVConf, manager.outputDir)
+//                                            manager.writeSimilaritiesToFile(key, answer, id, BVConf, manager.outputDir)
                                             answer.clear()
                                             answerIndex = 0
                                         }
