@@ -123,9 +123,11 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     ignore should "b" in {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/10k-clueweb.txt")
         val converter = new TextToVectorConverter
-        val vecs =   par.map(converter.convertTweetToVector(_,maxWeight = 3, removeSWords = true, topToRemove = 4))
+        val vecs =   converter.convertTweetsToVectors(par, maxWeight = 20, removeSWords = true, topToRemove = 4)
+
+//        val vecs =   par.map(converter.convertTweetToVector(_,maxWeight = 5, removeSWords = true, topToRemove = 4))
         val executionValues = List(.9)
-        val buckets = 41
+        val buckets = 21
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
         val actualStaticPartitioningValues = ArrayBuffer[Long]()
         val dynamicPartitioningValues = ArrayBuffer[Long]()

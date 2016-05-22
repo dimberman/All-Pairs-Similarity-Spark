@@ -49,10 +49,13 @@ object PartitionUtil extends Serializable {
         answer
     }
 
-    def normalizeVector(vec: SparseVector): SparseVector = {
+    def normalizeVector(vec: SparseVector, extFilter:Set[Int] = Set()): SparseVector = {
         val norm = normalizer(vec)
-        for (i <- vec.values.indices) vec.values(i) = vec.values(i) / norm
-        new SparseVector(vec.size, vec.indices, vec.values)
+         val filter =  vec.indices.zip(vec.values).filter{case(a,b) => b > 1500 }.map(_._1).toSet ++ extFilter
+
+        val (filterInd, filterVals) = vec.indices.zip(vec.values).filterNot{ case(a,b) => filter.contains(a)} .unzip
+        for (i <- filterInd.indices) filterVals(i) = filterVals(i) / norm
+        new SparseVector(filterInd.size, filterInd.toArray, filterVals.toArray)
 
     }
 

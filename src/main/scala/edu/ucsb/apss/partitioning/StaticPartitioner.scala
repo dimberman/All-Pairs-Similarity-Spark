@@ -57,7 +57,8 @@ object StaticPartitioner extends Serializable {
 
 
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): Array[(Int, Double)] = {
-        val answer = r.map { case (k, v) => (k, v.l1) }.reduceByKey((a, b) => math.max(a, b)).collect().sortBy(_._1)
+        val answer = r.map { case (k, v) => (k, v.l1) }.reduceByKey((a, b) =>
+            math.max(a, b)).collect().sortBy(_._1)
         answer
     }
 
@@ -108,10 +109,10 @@ object StaticPartitioner extends Serializable {
 
                         var res = 0
                         while (
-                            tMax > sumLeaders(res)._2 ||
+                            (tMax > sumLeaders(res)._2 ||
                               tSum > maxLeaders(res)._2 ||
                               threshold / maxLeaders(res)._2 > l1norm ||
-                              threshold / sumLeaders(res)._2 > vec.lInf) {
+                              threshold / sumLeaders(res)._2 > vec.lInf) && res < bucket) {
                             res += 1
                         }
                         //                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap) < threshold) {

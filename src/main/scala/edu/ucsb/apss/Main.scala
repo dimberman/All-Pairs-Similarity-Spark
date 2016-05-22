@@ -23,12 +23,13 @@ case class Sim(i: Long, j: Long, sim: Double) extends Ordered[Sim] {
 case class PSSConfig(
                       input: String = "",
                       thresholds: Seq[Double] = Seq(0.9),
+                      maxWeight: Int = 1000,
                       numLayers: Int = 21,
                       balanceStage1: Boolean = true,
                       balanceStage2: Boolean = true,
                       output: String = "/user/output",
                       histTitle: String = "histogram",
-                      debug: Boolean = false
+                      debug: Boolean = true
 
                     )
 
@@ -62,11 +63,17 @@ object Main {
               .action { (x, c) =>
                   c.copy(output = x)
               } text "output directory for APSS, defaults to /user/output"
+            opt[Int]('m', "max-weight")
+              .optional()
+              .action { (x, c) =>
+                  c.copy(maxWeight = x)
+              } text "maximum weight that will be considered"
             opt[String]('h', "histogram-title")
               .optional()
               .action { (x, c) =>
                   c.copy(histTitle = x)
               } text "title for histogram, defaults to \"histogram\""
+
             opt[Boolean]('d', "debug")
               .optional()
               .action { (x, c) =>
@@ -93,7 +100,7 @@ object Main {
         println(s"default par: ${sc.defaultParallelism}")
         val executionValues = config.thresholds
         val buckets = config.numLayers
-        val vecs = par.map((new TextToVectorConverter).convertTweetToVector(_))
+        val vecs = (new TextToVectorConverter).convertTweetsToVectors(par, removeSWords = true, maxWeight = config.maxWeight)
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
         val actualStaticPartitioningValues = ArrayBuffer[Long]()
         val dynamicPartitioningValues = ArrayBuffer[Long]()
@@ -128,7 +135,6 @@ object Main {
         log.info("breakdown:")
         log.info("breakdown:")
         log.info(s"breakdown: ************${config.histTitle}******************")
-        //        log.info("breakdown:," + buckets.foldRight("")((a,b) => a + "," + b))
         log.info("breakdown:threshold," + executionValues.mkString(","))
         log.info("breakdown: theoretical pairs removed," + theoreticalStaticPartitioningValues.mkString(","))
         log.info("breakdown: actual pairs removed," + theoreticalStaticPartitioningValues.mkString(","))

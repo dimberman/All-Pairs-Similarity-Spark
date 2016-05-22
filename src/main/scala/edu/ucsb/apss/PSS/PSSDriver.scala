@@ -77,7 +77,8 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
         numVectors = count
         numComparisons = (numVectors * (numVectors - 1)) / 2
 
-        val normalizedVectors = vectors.map(normalizeVector)
+        val normalizedVectors = vectors
+//          .map(normalizeVector)
         val indexedNormalizedVecs = recordIndex(normalizedVectors)
                                         .repartition(numBuckets)
 
@@ -88,8 +89,11 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true)) {
 
     def staticPartition(l1partitionedVectors: RDD[(Int, VectorWithNorms)], threshold: Double, sc: SparkContext) = {
         val bucketLeaders = determineBucketLeaders(l1partitionedVectors)
+
+        bucketLeaders.foreach{case(i,v) => println(s"leader[$i]: $v")}
         val bucketMaxes = determineBucketMaxes(l1partitionedVectors)
         val sPartitioned = partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, bucketMaxes, threshold, sc)
+
         bucketizedVectorSizeMap = sPartitioned.countByKey().toMap.withDefault(_ => 0)
         bucketizedVectorSizeMap.toList.sortBy(_._1).foreach(println)
         sPartitioned
