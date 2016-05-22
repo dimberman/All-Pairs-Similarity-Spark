@@ -1,6 +1,6 @@
 package edu.ucsb.apss.PSS
 
-import edu.ucsb.apss.InvertedIndex.FeaturePair
+import edu.ucsb.apss.InvertedIndex.{SimpleInvertedIndex, FeaturePair}
 import org.apache.spark.mllib.linalg.SparseVector
 
 /**
@@ -23,9 +23,37 @@ object SimilarityCalculator extends Serializable {
         }
     }
 
+    def calculateInvIndScores(vec:SimpleInvertedIndex, invertedIndex: Map[Int, List[FeaturePair]], indexMap:Map[Long,Int], vecIndexMap:Map[Long,Int], score:Array[Array[Double]]) = {
+        val indices = vec.indices
+
+        val mutalFeatures = indices.keySet.intersect(invertedIndex.keySet)
+
+
+        mutalFeatures.foreach(
+            i =>{
+                val inner = invertedIndex(i)
+                val outer = indices(i)
+                for(FeaturePair(i, weight_i) <- inner){
+                    for(FeaturePair(j, weight_j) <- outer){
+                        score(indexMap(i))(vecIndexMap(j)) += weight_i * weight_j
+                    }
+                }
+            }
+
+        )
+
+    }
+
     def clearScoreArray(scores:Array[Double]) = {
         for (l <- scores.indices) {
-            scores(l) = 0
+                scores(l) = 0
+        }
+    }
+
+    def clearInvIndArray(scores:Array[Array[Double]]) = {
+        for (l <- scores.indices) {
+            for(k <- scores(l).indices)
+            scores(l)(k) = 0
         }
     }
 }
