@@ -6,6 +6,8 @@ import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
 import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
 
 import scala.collection.mutable.ArrayBuffer
+import java.io.File
+import org.apache.commons.io.FileUtils;
 
 
 /**
@@ -14,10 +16,16 @@ import scala.collection.mutable.ArrayBuffer
 class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     import edu.ucsb.apss.util.PartitionUtil._
 
+    val outputDir = "~/output"
     val sc = Context.sc
 
     val driver = new PSSDriver(outputDirectory = "/Users/dimberman/output")
 
+
+    after {
+        val f = new File(outputDir)
+        FileUtils.deleteDirectory(f)
+    }
 
     "apss" should "calculate the most similar vectors" in {
         val par = sc.parallelize(Seq("a a a a", "a a b b", "a b f g ", "b b b b"))
@@ -53,19 +61,23 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
 
     it should "contian only correct output" in {
-        val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
+        val outputDir = "/Users/dimberman/output/correct"
+        val d = new PSSDriver(outputDirectory = outputDir)
+
+        val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
         val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
         val expected = e.toMap
 
-        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
+        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
         val vecs = par.map(BagOfWordToVectorConverter.convert)
 //        val v = vecs.collect()
 //          .map(_.toDense)
 //        v.foreach(println)
-        val answer = driver.run(sc, vecs, 5, 0.0).map{case(x,b,c) => ((x,b),c)}.mapValues(truncateAt(_,2)).collect()
+        d.run(sc, vecs, 5, 0.0).map{case(x,b,c) => ((x,b),c)}.mapValues(truncateAt(_,2)).collect()
+        val answer = sc.textFile(outputDir+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect()
         answer.foreach{
             case(i,j) =>
-//                println(s"for pair $i, expected: ${expected(i)} got: $j")
+                println(s"for pair $i, expected: ${expected(i)} got: $j")
                 expected(i) shouldEqual (j +- .011)
         }
 

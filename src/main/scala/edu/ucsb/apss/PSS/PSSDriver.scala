@@ -186,26 +186,28 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
 
                 filtered.foreach {
                     case (key) =>
-                        val externalVectors = manager.readVecPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.map(_._1)
+                        val externalVectors = manager.readInvPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.map(_._1)
                         //                        println(s"comparing ${(bucket,tl)} to $key")
                         invIter.foreach {
                             inv =>
                                 val indexMap = InvertedIndex.extractIndexMapFromSimple(inv)
-                                val scores = new Array[Double](calcSize)
+                                val scores =  Array.ofDim[Double](calcSize, 32)
                                 val invertedIndex = inv.indices
                                 externalVectors.foreach {
                                     case v_j =>
-                                        val VectorWithNorms(_, _, _, vec, ind_j, _) = v_j
+                                        val externalIndexMap = InvertedIndex.extractIndexMapFromSimple(v_j)
+//                                        val VectorWithNorms(_, _, _, vec, ind_j, _) = v_j
 
-                                        calculateScores(vec, invertedIndex, indexMap, scores)
+                                        calculateInvIndScores(v_j, invertedIndex, indexMap, externalIndexMap, scores)
 
-                                        indexMap.foreach {
-                                            case (ind_i, l) =>
+
+                                        for((ind_i,l) <- indexMap){
+                                            for((ind_j, k) <- externalIndexMap){
                                                 if (ind_i == ind_j || (bucket, tl) == key && ind_i < ind_j) {
 
                                                 }
-                                                else if (scores(l) > threshold) {
-                                                    val c = Similarity(ind_i, ind_j.toLong, scores(l))
+                                                else if (scores(l)(k) > threshold) {
+                                                    val c = Similarity(ind_i, ind_j.toLong, scores(l)(k))
                                                     answer += c
                                                     answerIndex +=1
                                                     if (answerIndex > 100){
@@ -226,15 +228,17 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
                                                     numVecPair += 1
 
                                                 }
-
+                                            }
                                         }
+
+
                                         if(answer.nonEmpty){
                                             manager.writeSimilaritiesToFile(key, answer, id, BVConf, manager.outputDir)
                                             answer.clear()
                                             answerIndex = 0
                                         }
 
-                                        clearScoreArray(scores)
+                                        clearInvIndArray(scores)
 
                                 }
 

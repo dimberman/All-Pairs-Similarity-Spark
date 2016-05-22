@@ -1,6 +1,6 @@
 package edu.ucsb.apss.util
 
-import edu.ucsb.apss.InvertedIndex.SimpleInvertedIndex
+import edu.ucsb.apss.InvertedIndex.{InvertedIndex, SimpleInvertedIndex}
 import edu.ucsb.apss.PSS.Similarity
 import edu.ucsb.apss.partitioning.PartitionHasher
 import org.apache.hadoop.conf.Configuration
@@ -66,8 +66,9 @@ case class FileSystemManager(local:Boolean = false, outputDir: String = "") exte
         val x = r.groupByKey()
         val id = r.context.applicationId
         val BVConf = r.context.broadcast(new SerializableWritable(r.context.hadoopConfiguration))
+
         x.foreach { case (k, v) =>
-            writeVecFile(k, v, id, BVConf)
+            writeVecFileToInvertedIndexes(k, v, id, BVConf)
         }
         val y = x.collect
 
@@ -124,7 +125,23 @@ case class FileSystemManager(local:Boolean = false, outputDir: String = "") exte
 
 
     }
+    def writeVecFileToInvertedIndexes(key: (Int, Int), f: Iterable[VectorWithNorms], id: String, BVConf: Broadcast[SerializableWritable[Configuration]]) = {
+        val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
+        val path = new Path(partitionFile)
+        val fs = path.getFileSystem(BVConf.value.value)
 
+        val invertedIndexes = f.grouped(32).map(a => InvertedIndex.extractFeaturePairs(a.toList))
+
+
+        val env = SparkEnv.get
+        val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
+        if (!fs.exists(path)) {
+            val output = fs.create(path, false, bufferSize)
+            val serialized = env.serializer.newInstance().serializeStream(output)
+            serialized.writeAll(invertedIndexes)
+            output.close()
+        }
+    }
 
     def writeSimilaritiesToFile(key: (Int, Int), f: Seq[Similarity], id: String, BVConf: Broadcast[SerializableWritable[Configuration]], outputDir:String) = {
         val partitionFile = s"$outputDir/$id/" + PartitionHasher.partitionHash(key)
