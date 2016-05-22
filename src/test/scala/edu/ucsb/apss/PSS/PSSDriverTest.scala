@@ -16,7 +16,7 @@ import org.apache.commons.io.FileUtils;
 class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     import edu.ucsb.apss.util.PartitionUtil._
 
-    val outputDir = "~/output"
+    val outputDir = "/tmp/output"
     val sc = Context.sc
 
     val driver = new PSSDriver(outputDirectory = "/Users/dimberman/output")
