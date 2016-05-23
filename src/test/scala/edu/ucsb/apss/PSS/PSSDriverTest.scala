@@ -59,6 +59,28 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     }
 
 
+    "afsd" should "asgasd" in {
+        val outputDir = s"${this.outputDir}/correct"
+        val d = new PSSDriver(outputDirectory = outputDir)
+
+        val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
+        val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
+        val expected = e.toMap
+
+        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
+        val vecs = par.map(BagOfWordToVectorConverter.convert)
+        //        val v = vecs.collect()
+        //          .map(_.toDense)
+        //        v.foreach(println)
+        d.run(sc, vecs, 5, 0.6).collect()
+        val answer = sc.textFile(outputDir+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect().sorted
+        println(s"count: ${answer.size}")
+        answer.foreach{
+            case(i,j) =>
+                println(s"for pair $i, expected: ${expected(i)} got: $j")
+                expected(i) shouldEqual (j +- .011)
+        }
+    }
 
     it should "contain only correct output" in {
         val outputDirectory = outputDir +"/correct"
