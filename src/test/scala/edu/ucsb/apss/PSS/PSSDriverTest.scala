@@ -16,8 +16,8 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
     val sc = Context.sc
 
-    val outputDir = s"/Users/dimberman/output/${sc.applicationId}"
-    val driver = new PSSDriver(outputDirectory = "/Users/dimberman/output")
+    val outputDir = s"/tmp/output/${sc.applicationId}"
+    val driver = new PSSDriver(outputDirectory = outputDir)
 
 
     "apss" should "calculate the most similar vectors" in {
@@ -52,8 +52,8 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     }
 
     "asdlkfj" should "sdfalkj" in {
-        val outputDir = s"${this.outputDir}/correct"
-        val d = new PSSDriver(outputDirectory = outputDir)
+        val outputDirec = s"${this.outputDir}/correct/"
+        val d = new PSSDriver(outputDirectory = outputDirec)
 
         val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
         val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
@@ -65,7 +65,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         //          .map(_.toDense)
         //        v.foreach(println)
         d.run(sc, vecs, 5, 0.6).collect()
-        val answer = sc.textFile(outputDir+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect().sorted
+        val answer = sc.textFile(outputDirec+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect().sorted
         println(s"count: ${answer.size}")
         answer.foreach{
             case(i,j) =>

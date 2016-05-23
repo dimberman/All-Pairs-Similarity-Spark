@@ -127,7 +127,7 @@ case class FileSystemManager(local:Boolean = false, outputDir: String = "") exte
 
 
     def writeSimilaritiesToFile(key: (Int, Int), f: Seq[Similarity], id: String, BVConf: Broadcast[SerializableWritable[Configuration]], outputDir:String) = {
-        val partitionFile = s"$outputDir/$id/" + PartitionHasher.partitionHash(key)
+        val partitionFile = s"$outputDir/" + PartitionHasher.partitionHash(key)
         val path = new Path(partitionFile)
         val fs = path.getFileSystem(BVConf.value.value)
 
