@@ -50,11 +50,41 @@ object StaticPartitioner extends Serializable {
           .sortByKey()
           .zipWithIndex()
           .map {
-              case ((l1, vec), sortIndex) =>
-                  ((sortIndex.toFloat / numVectors.toFloat * numBuckets).toInt, vec)
+              case ((l1, vec), sortIndex) =>{
+                  val c = (numBuckets) * (numBuckets - 1)/2 + numBuckets
+
+                  val uniformPartitionSize = numVectors.toFloat / numBuckets
+                  val skewedPartitionSize = numVectors.toFloat / c.toFloat
+
+//                  val uniformIndex =  (sortIndex.toFloat / uniformPartitionSize).toInt
+
+                  var skewedIndex =   (sortIndex.toFloat / skewedPartitionSize).toInt
+
+                  var a = numBuckets
+                  var skewedAnswer = 0
+
+                  while(skewedIndex >= a){
+                      skewedAnswer += 1
+                      skewedIndex -= a
+                      a -= 1
+                  }
+
+                  require(a >=0, s"got a negative value for index $sortIndex")
+                  if(skewedAnswer > 38){
+                      println("foo")
+                  }
+
+                  (skewedAnswer, vec)
+              }
+
           }
     }
 
+    def choose (n: Long, k: Int):Long = {
+        if (k < 0 || k > n) return 0
+        if (k == 0 && n == 0) return 1
+        choose(n - 1, k) + choose(n - 1, k - 1)
+    }
 
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): Array[(Int, Double)] = {
         val answer = r.map { case (k, v) => (k, v.l1) }.reduceByKey((a, b) => math.max(a, b)).collect().sortBy(_._1)

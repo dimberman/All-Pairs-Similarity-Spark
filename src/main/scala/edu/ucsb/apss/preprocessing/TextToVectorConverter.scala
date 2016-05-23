@@ -189,14 +189,11 @@ class TextToVectorConverter extends Serializable{
  "yourself",
  "yourselves")
 
-  def convertTweetToVector(s:String, topToRemove:Int = 0, removeSWords:Boolean = false, maxWeight:Int = Int.MaxValue):SparseVector = {
+  def convertTextToVector(s:String, topToRemove:Int = 0, removeSWords:Boolean = false, maxWeight:Int = Int.MaxValue):SparseVector = {
     val table =  generateTable(maxWeight)
     val filtered = if(removeSWords) removeStopWords(s.split(" ").toSeq) else s.split(" ")
-    val (vec, tf) = transform(s.split(" ").toSeq, maxWeight)
+    val vec= table.transform(s.split(" ").toSeq)
     val ans = vec.toSparse
-    val topN = tf.toList.sortBy(-_._2).take(topToRemove).toMap
-    val topIndexes = ans.indices.zipWithIndex.filter(a => topN.contains(a._1)).map(_._2)
-    for ( i <- topIndexes) ans.values(i) == 0.0
     ans
   }
 
@@ -228,9 +225,7 @@ class TextToVectorConverter extends Serializable{
     (Vectors.sparse(numFeatures, termFrequencies.toSeq), termFrequencies)
   }
   def generateTable(maxWeight:Int) = {
-    new HashingTF(10000){
-
-    }
+    new HashingTF(10000)
   }
 
 }

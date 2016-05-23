@@ -177,7 +177,7 @@ object LoadBalancer extends Serializable {
         val nonReduceable = MSet[(Int,Int)]()
         var i = 0
 
-        while (nonReduceable.size < input.size && i < 50000) {
+        while (nonReduceable.size < input.size && i < 20000) {
             i += 1
             val costs = MMap() ++ input.map(calculateCost(_, bucketSizes))
             val orderedCosts = costs.filter{case(k,v) => !nonReduceable.contains(k)}.toList.sortBy(-_._2)

@@ -276,7 +276,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
         for (i <- 0 to numBuckets - 1) {
             val bSize = List.range(0, i + 1).map(x => bucketizedVectorSizeMap(i, x)).sum
             //            println(s"bsize: $bSize")
-            require(bucketSizes(i) == bSize, s"the sum of the bucketizedVectorMap values did not equal the bucketSize. Bsize: ${bucketSizes(i)}, parts: ${bucketizedVectorSizeMap.filterKeys(_._1 == i)}")
+            require(bucketSizes(i) == bSize, s"the sum of the bucketizedVectorMap values did not equal the bucketSize. for index ${i} Bsize: ${bucketSizes(i)}, parts: ${bucketizedVectorSizeMap.filterKeys(_._1 == i)}")
         }
 
 

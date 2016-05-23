@@ -32,7 +32,7 @@ object LshAllPairsDriver {
 
 
     def runHoldens(tweets: RDD[String], numBuckets: Int) = {
-        val convertedTweets = tweets.map(converter.convertTweetToVector(_))
+        val convertedTweets = tweets.map(converter.convertTextToVector(_))
         val b = convertedTweets.collect()
         val bucketizer = createBucket(convertedTweets, numBuckets)
         val bucketizedTweets = convertedTweets.map(bucketizeTweet(_, bucketizer)).repartition(numBuckets).persist()
@@ -55,7 +55,7 @@ object LshAllPairsDriver {
 
 
     def apss(tweets: RDD[String], numBuckets: Int) = {
-        val convertedTweets = tweets.map(converter.convertTweetToVector(_))
+        val convertedTweets = tweets.map(converter.convertTextToVector(_))
         val bucketizer = createBucket(convertedTweets, numBuckets)
         val bucketizedTweets = convertedTweets.map(bucketizeTweet(_, bucketizer)).persist()
         val anchors = bucketizedTweets.keys.distinct().collect()
