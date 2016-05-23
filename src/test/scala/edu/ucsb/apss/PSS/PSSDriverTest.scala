@@ -75,7 +75,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 //        v.foreach(println)
         d.run(sc, vecs, 5, 0.0).map{case(x,b,c) => ((x,b),c)}.mapValues(truncateAt(_,2)).collect()
         val answer = sc.textFile(outputDir+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect()
-        answer.foreach{
+        answer.sorted.foreach{
             case(i,j) =>
                 println(s"for pair $i, expected: ${expected(i)} got: $j")
                 expected(i) shouldEqual (j +- .011)

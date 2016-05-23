@@ -60,7 +60,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
 
         if (debugPSS) logStaticPartitioning(staticPartitionedVectors, threshold, numBuckets)
 
-        val invertedIndexes = generateInvertedIndexes(staticPartitionedVectors, 100)
+        val invertedIndexes = generateInvertedIndexes(staticPartitionedVectors, 1000)
 
         manager.writePartitionsToFile(staticPartitionedVectors)
 
@@ -129,7 +129,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
         ans
     }
 
-    def calculateCosineSimilarityByPullingFromFile(invertedIndexes: RDD[((Int, Int), Iterable[SimpleInvertedIndex])], threshold: Double, numBuckets: Int, balancedMapping: Map[(Int, Int), List[(Int, Int)]], calcSize: Int = 100): RDD[(Long, Long, Double)] = {
+    def calculateCosineSimilarityByPullingFromFile(invertedIndexes: RDD[((Int, Int), Iterable[SimpleInvertedIndex])], threshold: Double, numBuckets: Int, balancedMapping: Map[(Int, Int), List[(Int, Int)]], calcSize: Int = 1000): RDD[(Long, Long, Double)] = {
         //        log.info(s"num partitions: ${partitionedTasks.partitions.length}")
         val skipped: Accumulator[Long] = invertedIndexes.context.accumulator[Long](0)
         val reduced: Accumulator[Long] = invertedIndexes.context.accumulator[Long](0)
@@ -184,10 +184,13 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
                 val answer = new ArrayBuffer[Similarity]()
                 var answerIndex = 0
 
+                var x= 0
                 filtered.foreach {
                     case (key) =>
                         val externalVectors = manager.readInvPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.map(_._1)
                         //                        println(s"comparing ${(bucket,tl)} to $key")
+
+
                         invIter.foreach {
                             inv =>
                                 val indexMap = InvertedIndex.extractIndexMapFromSimple(inv)
@@ -195,9 +198,17 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
                                 val invertedIndex = inv.indices
                                 externalVectors.foreach {
                                     case v_j =>
-                                        val externalIndexMap = InvertedIndex.extractIndexMapFromSimple(v_j)
-//                                        val VectorWithNorms(_, _, _, vec, ind_j, _) = v_j
 
+
+
+                                        val externalIndexMap = InvertedIndex.extractIndexMapFromSimple(v_j)
+//
+                                        val ext = externalIndexMap.keys.toList.sorted
+                                        //
+                                        // val VectorWithNorms(_, _, _, vec, ind_j, _) = v_j
+                                        if(indexMap.contains(249) && externalIndexMap.contains(122)){
+                                            println("foo")
+                                        }
                                         calculateInvIndScores(v_j, invertedIndex, indexMap, externalIndexMap, scores)
 
 
@@ -239,7 +250,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
                                         }
 
                                         clearInvIndArray(scores)
-
+                                        x += 1
                                 }
 
 

@@ -24,23 +24,41 @@ object SimilarityCalculator extends Serializable {
     }
 
     def calculateInvIndScores(vec:SimpleInvertedIndex, invertedIndex: Map[Int, List[FeaturePair]], indexMap:Map[Long,Int], vecIndexMap:Map[Long,Int], score:Array[Array[Double]]) = {
-        val indices = vec.indices
-
-        val mutalFeatures = indices.keySet.intersect(invertedIndex.keySet)
 
 
-        mutalFeatures.foreach(
-            i =>{
-                val inner = invertedIndex(i)
-                val outer = indices(i)
-                for(FeaturePair(i, weight_i) <- inner){
-                    for(FeaturePair(j, weight_j) <- outer){
-                        score(indexMap(i))(vecIndexMap(j)) += weight_i * weight_j
+
+
+        vec.indices.keys.foreach{
+            l => {
+                if(invertedIndex.contains(l)){
+                    for(FeaturePair(j, weight_j) <- vec.indices(l)){
+                        for(FeaturePair(i, weight_i) <- invertedIndex(l)){
+                            val ind_i =  indexMap(i)
+                            val ind_j = vecIndexMap(j)
+                            score(ind_i)(ind_j) += weight_i * weight_j
+                        }
                     }
                 }
             }
+        }
 
-        )
+
+//
+//        val mutalFeatures = indices.keySet.intersect(invertedIndex.keySet)
+//
+//
+//        mutalFeatures.foreach(
+//            i =>{
+//                val inner = invertedIndex(i)
+//                val outer = indices(i)
+//                for(FeaturePair(i, weight_i) <- inner){
+//                    for(FeaturePair(j, weight_j) <- outer){
+//                        score(indexMap(i))(vecIndexMap(j)) += weight_i * weight_j
+//                    }
+//                }
+//            }
+//
+//        )
 
     }
 
