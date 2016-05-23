@@ -16,7 +16,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
     val sc = Context.sc
 
-    val outputDir = "/Users/dimberman/output"
+    val outputDir = s"/Users/dimberman/output/${sc.applicationId}"
     val driver = new PSSDriver(outputDirectory = "/Users/dimberman/output")
 
 
@@ -50,6 +50,54 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 //        x.foreach(println)
 
     }
+
+    "asdlkfj" should "sdfalkj" in {
+        val outputDir = s"${this.outputDir}/correct"
+        val d = new PSSDriver(outputDirectory = outputDir)
+
+        val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
+        val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
+        val expected = e.toMap
+
+        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
+        val vecs = par.map(BagOfWordToVectorConverter.convert)
+        //        val v = vecs.collect()
+        //          .map(_.toDense)
+        //        v.foreach(println)
+        d.run(sc, vecs, 5, 0.8).collect()
+        val answer = sc.textFile(outputDir+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect().sorted
+        println(s"count: ${answer.size}")
+        answer.foreach{
+            case(i,j) =>
+                 println(s"for pair $i, expected: ${expected(i)} got: $j")
+                expected(i) shouldEqual (j +- .011)
+        }
+    }
+
+    "it" should "contian only correct output" in {
+        val outputDir = s"${this.outputDir}/correct"
+        val d = new PSSDriver(outputDirectory = outputDir)
+
+        val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
+        val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
+        val expected = e.toMap
+
+        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
+        val vecs = par.map(BagOfWordToVectorConverter.convert)
+        //        val v = vecs.collect()
+        //          .map(_.toDense)
+        //        v.foreach(println)
+        d.run(sc, vecs, 5, 0.8).collect()
+        val answer = sc.textFile(outputDir+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect().sorted
+        println(s"count: ${answer.size}")
+        answer.foreach{
+            case(i,j) =>
+                //                println(s"for pair $i, expected: ${expected(i)} got: $j")
+                expected(i) shouldEqual (j +- .011)
+        }
+
+    }
+
 
 
 
@@ -103,29 +151,6 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         println("breakdown:timing," + timings.mkString(","))
     }
 
-    ignore should "contian only correct output" in {
-        val outputDir = s"${this.outputDir}/correct"
-        val d = new PSSDriver(outputDirectory = outputDir)
-
-        val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
-        val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
-        val expected = e.toMap
-
-        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
-        val vecs = par.map(BagOfWordToVectorConverter.convert)
-        //        val v = vecs.collect()
-        //          .map(_.toDense)
-        //        v.foreach(println)
-        d.run(sc, vecs, 5, 0.8).collect()
-        val answer = sc.textFile(outputDir+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect()
-        println(s"count: ${answer.size}")
-        answer.foreach{
-            case(i,j) =>
-                //                println(s"for pair $i, expected: ${expected(i)} got: $j")
-                expected(i) shouldEqual (j +- .011)
-        }
-
-    }
 
 
     ignore should "b" in {

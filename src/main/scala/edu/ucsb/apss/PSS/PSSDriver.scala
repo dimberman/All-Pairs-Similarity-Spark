@@ -179,8 +179,8 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
                 val start = System.currentTimeMillis()
                 val filtered = BVPairs.value((bucket, tl))
                 val numBuc = filtered.size
-                                val answer = new BoundedPriorityQueue[Similarity](1000)
-//                val answer = new ArrayBuffer[Similarity]()
+//                                val answer = new BoundedPriorityQueue[Similarity](1000)
+                val answer = new ArrayBuffer[Similarity]()
                 var answerIndex = 0
 
                 filtered.foreach {
@@ -206,12 +206,12 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
                                                 else if (scores(l) > threshold) {
                                                     val c = Similarity(ind_i, ind_j.toLong, scores(l))
                                                     answer += c
-//                                                    answerIndex +=1
-//                                                    if (answerIndex > 100){
-//                                                        manager.writeSimilaritiesToFile(key, answer, id, BVConf, manager.outputDir)
-//                                                        answer.clear()
-//                                                        answerIndex = 0
-//                                                    }
+                                                    answerIndex +=1
+                                                    if (answerIndex > 100){
+                                                        manager.writeSimilaritiesToFile(key, answer, id, BVConf, manager.outputDir)
+                                                        answer.clear()
+                                                        answerIndex = 0
+                                                    }
 
                                                     all += 1
                                                     reduced += 1
@@ -227,11 +227,11 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
                                                 }
 
                                         }
-//                                        if(answer.nonEmpty){
-//                                            manager.writeSimilaritiesToFile(key, answer, id, BVConf, manager.outputDir)
-//                                            answer.clear()
-//                                            answerIndex = 0
-//                                        }
+                                        if(answer.nonEmpty){
+                                            manager.writeSimilaritiesToFile(key, answer, id, BVConf, manager.outputDir)
+                                            answer.clear()
+                                            answerIndex = 0
+                                        }
 
                                         clearScoreArray(scores)
 
