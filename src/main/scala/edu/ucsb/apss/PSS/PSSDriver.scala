@@ -24,7 +24,7 @@ import scala.collection.mutable.ArrayBuffer
   */
 
 
-class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory: String = "") {
+class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local:Boolean = false) {
 
     import edu.ucsb.apss.util.PartitionUtil._
     import edu.ucsb.apss.PSS.SimilarityCalculator._
@@ -41,6 +41,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
 
     var actualStaticPairReduction = 0L
 
+    var outputDir = ""
     var dParReduction = 0L
     var bucketizedVectorSizeMap: Map[(Int, Int), Long] = _
     var appId: String = _
@@ -48,14 +49,16 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
     var dPar = 0L
     var numVectors = 0L
     var numComparisons = 0L
-    val manager = new FileSystemManager
+    val manager = new FileSystemManager(outputDir=outputDir)
 
     type BucketizedVector = ((Int, Int), VectorWithNorms)
 
 
-    def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true) = {
+    def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true,outputDirectory: String = "/tmp/output") = {
         debugPSS = debug
+        outputDir = outputDirectory
         val l1partitionedVectors = bucketizeVectors(sc, vectors, numBuckets, threshold)
+
         val staticPartitionedVectors = staticPartition(l1partitionedVectors, threshold, sc)
 
         if (debugPSS) logStaticPartitioning(staticPartitionedVectors, threshold, numBuckets)
@@ -130,16 +133,14 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
     }
 
     def calculateCosineSimilarityByPullingFromFile(invertedIndexes: RDD[((Int, Int), Iterable[SimpleInvertedIndex])], threshold: Double, numBuckets: Int, balancedMapping: Map[(Int, Int), List[(Int, Int)]], calcSize: Int = 100): RDD[(Long, Long, Double)] = {
-        //        log.info(s"num partitions: ${partitionedTasks.partitions.length}")
         val skipped: Accumulator[Long] = invertedIndexes.context.accumulator[Long](0)
         val reduced: Accumulator[Long] = invertedIndexes.context.accumulator[Long](0)
         val all: Accumulator[Long] = invertedIndexes.context.accumulator[Long](0)
         val sc = invertedIndexes.context
 
         log.info("breakdown: beginning PSS")
-        invertedIndexes.count()
+
         val partMap = LoadBalancer.balanceByPartition(sc.defaultParallelism, balancedMapping, bucketizedVectorSizeMap)
-        val balancedPairs = balancedMapping.mapValues(_.size).map(identity)
 
         //        log.info("breakdown: pre-load balancing")
         //        unbalancedPairs.foreach { case (k, v) => log.info(s"breakdown: $k: $v") }
@@ -171,7 +172,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
 
 
         log.info(buckAccum.value)
-        val BVManager = sc.broadcast(FileSystemManager(outputDir = outputDirectory))
+        val BVManager = sc.broadcast(FileSystemManager(local = this.local,outputDir = outputDir))
 
         val similarities: RDD[Similarity] = balancedInvertedIndexes.values.flatMap {
             case (((bucket, tl), invIter, (ind, mod))) =>
@@ -180,10 +181,10 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
                 val start = System.currentTimeMillis()
                 val filtered = BVPairs.value((bucket, tl))
                 val numBuc = filtered.size
-                //                val answer = new BoundedPriorityQueue[Similarity](1000)
+//                                val answer = new BoundedPriorityQueue[Similarity](1000)
                 val answer = new ArrayBuffer[Similarity]()
                 var answerIndex = 0
-
+                val writer = manager.genOutputStream((bucket,tl), BVConf)
                 filtered.foreach {
                     case (key) =>
                         val externalVectors = manager.readVecPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.map(_._1)
@@ -209,7 +210,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
                                                     answer += c
                                                     answerIndex +=1
                                                     if (answerIndex > 100){
-                                                        manager.writeSimilaritiesToFile(key, answer, id, BVConf, manager.outputDir)
+                                                        manager.writeSimilaritiesToFile(answer, writer)
                                                         answer.clear()
                                                         answerIndex = 0
                                                     }
@@ -229,7 +230,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
 
                                         }
                                         if(answer.nonEmpty){
-                                            manager.writeSimilaritiesToFile(key, answer, id, BVConf, manager.outputDir)
+                                            manager.writeSimilaritiesToFile(answer, writer)
                                             answer.clear()
                                             answerIndex = 0
                                         }
@@ -243,6 +244,8 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), outputDirectory:
 
 
                 }
+                writer.close()
+
                 val time = (System.currentTimeMillis() - start).toDouble / 1000
                 //                driverAccum += s"breakdown: partition ${(inv.bucket,inv.tl)} took $time seconds to calculate $numVecPair pairs from $numBuc buckets"
                 driverAccum += DebugVal((bucket, tl), time, numVecPair, numBuc)

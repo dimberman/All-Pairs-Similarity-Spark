@@ -172,7 +172,6 @@ object LoadBalancer extends Serializable {
 
     def loadAssignmentRefinement(input: MMap[Key, MSet[Key]], bucketSizes: Map[Key, Long]): MMap[Key, MSet[Key]] = {
         var reduceable = true
-        val outerLoop = new Breaks
         val innerLoop = new Breaks
         val nonReduceable = MSet[(Int,Int)]()
         var i = 0
