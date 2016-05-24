@@ -100,14 +100,14 @@ object Main {
         val timings = ArrayBuffer[Long]()
 
 
-        val driver = new PSSDriver((config.balanceStage1, config.balanceStage2),config.output)
+        val driver = new PSSDriver((config.balanceStage1, config.balanceStage2))
 
 
 
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            driver.run(sc, vecs, buckets, threshold,debug = config.debug).count()
+            driver.run(sc, vecs, buckets, threshold,debug = config.debug, outputDirectory = config.output).count()
             val current = System.currentTimeMillis() - t1
             log.info(s"breakdown: apss with threshold $threshold using $buckets buckets took ${current / 1000} seconds")
             theoreticalStaticPartitioningValues.append(driver.theoreticalStaticPairReduction)
