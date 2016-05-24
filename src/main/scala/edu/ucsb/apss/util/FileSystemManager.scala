@@ -1,10 +1,12 @@
 package edu.ucsb.apss.util
 
+import java.io.{BufferedReader, InputStreamReader, File}
+
 import edu.ucsb.apss.InvertedIndex.{InvertedIndex, SimpleInvertedIndex}
 import edu.ucsb.apss.PSS.Similarity
 import edu.ucsb.apss.partitioning.PartitionHasher
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.{FSDataOutputStream, Path}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SerializableWritable, SparkEnv, TaskContext}
@@ -12,7 +14,7 @@ import org.apache.spark.{SerializableWritable, SparkEnv, TaskContext}
 /**
   * Created by dimberman on 4/14/16.
   */
-case class FileSystemManager(local:Boolean = false, outputDir: String = "") extends Serializable {
+case class FileSystemManager(local: Boolean = false, outputDir: String = "") extends Serializable {
 
 
     def readVecPartition(key: (Int, Int), id: String, broadcastedConf: Broadcast[SerializableWritable[Configuration]], taskContext: TaskContext): Iterator[VectorWithNorms] = {
@@ -61,7 +63,6 @@ case class FileSystemManager(local:Boolean = false, outputDir: String = "") exte
         ret
     }
 
-
     def writePartitionsToFile(r: RDD[((Int, Int), VectorWithNorms)]) = {
         val x = r.groupByKey()
         val id = r.context.applicationId
@@ -74,7 +75,6 @@ case class FileSystemManager(local:Boolean = false, outputDir: String = "") exte
 
     }
 
-
     def writeInvertedIndexesToFile(r: RDD[((Int, Int), Iterable[SimpleInvertedIndex])]) = {
         val id = r.context.applicationId
         val BVConf = r.context.broadcast(new SerializableWritable(r.context.hadoopConfiguration))
@@ -83,6 +83,24 @@ case class FileSystemManager(local:Boolean = false, outputDir: String = "") exte
         }
         val y = r.collect
 
+    }
+
+    def writeVecFileToInvertedIndexes(key: (Int, Int), f: Iterable[VectorWithNorms], id: String, BVConf: Broadcast[SerializableWritable[Configuration]]) = {
+        val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
+        val path = new Path(partitionFile)
+        val fs = path.getFileSystem(BVConf.value.value)
+
+        val invertedIndexes = f.grouped(32).map(a => InvertedIndex.extractFeaturePairs(a.toList))
+
+
+        val env = SparkEnv.get
+        val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
+        if (!fs.exists(path)) {
+            val output = fs.create(path, false, bufferSize)
+            val serialized = env.serializer.newInstance().serializeStream(output)
+            serialized.writeAll(invertedIndexes)
+            output.close()
+        }
     }
 
 
@@ -97,8 +115,6 @@ case class FileSystemManager(local:Boolean = false, outputDir: String = "") exte
     //        val y = x.collect
     //
     //    }
-
-
 
 
     def cleanup(id: String, BVConf: Broadcast[SerializableWritable[Configuration]]) = {
@@ -125,40 +141,25 @@ case class FileSystemManager(local:Boolean = false, outputDir: String = "") exte
 
 
     }
-    def writeVecFileToInvertedIndexes(key: (Int, Int), f: Iterable[VectorWithNorms], id: String, BVConf: Broadcast[SerializableWritable[Configuration]]) = {
-        val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
+
+
+    def genOutputStream(key: (Int, Int), BVConf: Broadcast[SerializableWritable[Configuration]]) = {
+        val hashedKey = PartitionHasher.partitionHash(key)
+        val partitionFile = s"$outputDir/" + hashedKey
         val path = new Path(partitionFile)
         val fs = path.getFileSystem(BVConf.value.value)
-
-        val invertedIndexes = f.grouped(32).map(a => InvertedIndex.extractFeaturePairs(a.toList))
-
-
         val env = SparkEnv.get
         val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
-        if (!fs.exists(path)) {
-            val output = fs.create(path, false, bufferSize)
-            val serialized = env.serializer.newInstance().serializeStream(output)
-            serialized.writeAll(invertedIndexes)
-            output.close()
-        }
+        fs.create(path, false, bufferSize)
     }
 
-    def writeSimilaritiesToFile(key: (Int, Int), f: Seq[Similarity], id: String, BVConf: Broadcast[SerializableWritable[Configuration]], outputDir:String) = {
-        val partitionFile = s"$outputDir/$id/" + PartitionHasher.partitionHash(key)
-        val path = new Path(partitionFile)
-        val fs = path.getFileSystem(BVConf.value.value)
 
-        val env = SparkEnv.get
-        val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
-        if (!fs.exists(path)) {
-            val output = fs.create(path, false, bufferSize)
-            for(s <- f){
-                val out = s.toString + "\n"
-                output.writeBytes(out)
-            }
-            output.close()
+    def writeSimilaritiesToFile(f: Seq[Similarity], output: FSDataOutputStream) = {
+
+        for (s <- f) {
+            val out = s.toString + "\n"
+            output.writeBytes(out)
         }
-
 
     }
 

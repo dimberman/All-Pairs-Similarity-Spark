@@ -5,7 +5,7 @@ package edu.ucsb.apss.PSS
   */
 case class Similarity(i:Long, j:Long, similarity:Double) extends Ordering[Similarity]{
     override def compare(x: Similarity, y: Similarity): Int = x.similarity compare y.similarity
-    override def toString() = {
+    override def toString(): String ={
         s"$i,$j,$similarity"
     }
 }

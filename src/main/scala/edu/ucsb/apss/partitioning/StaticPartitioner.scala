@@ -108,10 +108,12 @@ object StaticPartitioner extends Serializable {
 
                         var res = 0
                         while (
-                            tMax > sumLeaders(res)._2 ||
-                              tSum > maxLeaders(res)._2 ||
-                              threshold / maxLeaders(res)._2 > l1norm ||
-                              threshold / sumLeaders(res)._2 > vec.lInf) {
+                            tMax > sumLeaders(res)._2
+//                              ||
+//                              tSum > maxLeaders(res)._2 ||
+//                              threshold / maxLeaders(res)._2 > l1norm ||
+//                              threshold / sumLeaders(res)._2 > vec.lInf
+                        ) {
                             res += 1
                         }
                         //                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap) < threshold) {
