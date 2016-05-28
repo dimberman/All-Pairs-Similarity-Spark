@@ -56,7 +56,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     type BucketizedVector = ((Int, Int), VectorWithNorms)
 
 
-    def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true, outputDirectory: String = "/tmp/output") = {
+    def calculateCosineSimilarity(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true, outputDirectory: String = "/tmp/output") = {
         debugPSS = debug
         outputDir = outputDirectory
         val l1partitionedVectors = bucketizeVectors(sc, vectors, numBuckets, threshold)
@@ -76,7 +76,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     }
 
 
-    def bucketizeVectors(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double): RDD[(Int, VectorWithNorms)] = {
+   private[apss] def bucketizeVectors(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double): RDD[(Int, VectorWithNorms)] = {
         val count = vectors.count
 
         numVectors = count
@@ -91,7 +91,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
         l1partitionedVectors
     }
 
-    def staticPartition(l1partitionedVectors: RDD[(Int, VectorWithNorms)], threshold: Double, sc: SparkContext) = {
+    private[apss] def staticPartition(l1partitionedVectors: RDD[(Int, VectorWithNorms)], threshold: Double, sc: SparkContext) = {
         val bucketLeaders = determineBucketLeaders(l1partitionedVectors)
         val bucketMaxes = determineBucketMaxes(l1partitionedVectors)
         val sPartitioned = partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, bucketMaxes, threshold, sc)
@@ -102,7 +102,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     }
 
 
-    def balancePSS(invertedIndexes: RDD[((Int, Int), Iterable[SimpleInvertedIndex])], numBuckets: Int, balance: Boolean = true): Map[(Int, Int), List[(Int, Int)]] = {
+    private[apss] def balancePSS(invertedIndexes: RDD[((Int, Int), Iterable[SimpleInvertedIndex])], numBuckets: Int, balance: Boolean = true): Map[(Int, Int), List[(Int, Int)]] = {
 
         val buckets = invertedIndexes.filter(_._2.nonEmpty).keys.collect()
         val neededVecs = buckets.sortBy(a => a)
@@ -134,7 +134,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
         ans
     }
 
-    def calculateCosineSimilarityByPullingFromFile(invertedIndexes: RDD[((Int, Int), Iterable[SimpleInvertedIndex])], threshold: Double, numBuckets: Int, balancedMapping: Map[(Int, Int), List[(Int, Int)]], calcSize: Int = 100): RDD[(Long, Long, Double)] = {
+    private[apss] def calculateCosineSimilarityByPullingFromFile(invertedIndexes: RDD[((Int, Int), Iterable[SimpleInvertedIndex])], threshold: Double, numBuckets: Int, balancedMapping: Map[(Int, Int), List[(Int, Int)]], calcSize: Int = 100): RDD[(Long, Long, Double)] = {
         val skipped: Accumulator[Long] = invertedIndexes.context.accumulator[Long](0)
         val reduced: Accumulator[Long] = invertedIndexes.context.accumulator[Long](0)
         val all: Accumulator[Long] = invertedIndexes.context.accumulator[Long](0)
@@ -282,7 +282,6 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
 
                                                         }
                                                         else {
-                                                            //                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
                                                             skipped += 1
                                                             all += 1
                                                             numVecPair += 1
@@ -332,7 +331,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     }
 
 
-    def logStaticPartitioning(bucketizedVectors: RDD[BucketizedVector], threshold: Double, numBuckets: Int): Unit = {
+    private[apss] def logStaticPartitioning(bucketizedVectors: RDD[BucketizedVector], threshold: Double, numBuckets: Int): Unit = {
         //        var skipped: Long = 0
 
         val bv = bucketizedVectors.collect()
@@ -447,7 +446,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     }
 
 
-    def logLoadBalancing(unbalanced: Map[(Int, Int), List[(Int, Int)]], unbalancedComparisons: Long): Unit = {
+    private[apss] def logLoadBalancing(unbalanced: Map[(Int, Int), List[(Int, Int)]], unbalancedComparisons: Long): Unit = {
         log.info("")
         log.info("")
         log.info("static partitioning breakdown:")
@@ -481,7 +480,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     }
 
 
-    def logDynamicPartitioningOutput(skipped: Accumulator[Long], reduced: Accumulator[Long], postStaticPartitioningPairs: Accumulator[Long], manager: FileSystemManager, sc: SparkContext, BVConf: Broadcast[SerializableWritable[Configuration]], driverAccum: Accumulable[ArrayBuffer[DebugVal], DebugVal], similarities: RDD[Similarity]) = {
+    private[apss] def logDynamicPartitioningOutput(skipped: Accumulator[Long], reduced: Accumulator[Long], postStaticPartitioningPairs: Accumulator[Long], manager: FileSystemManager, sc: SparkContext, BVConf: Broadcast[SerializableWritable[Configuration]], driverAccum: Accumulable[ArrayBuffer[DebugVal], DebugVal], similarities: RDD[Similarity]) = {
         //        log.info(driverAccum.value.sortBy(_.numPairs).map(d => s"breakdown: partition ${d.key} took ${d.time} seconds to calculate ${d.numPairs} pairs from ${d.numBuckets} buckets").mkString("\n"))
 
         log.info("breakdown: *******************************************************")
@@ -502,29 +501,6 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
 
     }
 }
-
-
-//def logScoreToAnswerVector(indexMap: Map[Long,Int], scores:Array[Double], ind_j:Int, ans:): Unit ={
-//                    indexMap.foreach {
-//                        case (ind_i, l) =>
-//                            if (scores(l) > threshold && ind_i != ind_j) {
-//                                val c = Similarity(ind_i, ind_j.toLong, scores(l))
-//                                answer += c
-//                                all += 1
-//                                reduced += 1
-//                                numVecPair += 1
-//
-//                            }
-//                            else {
-//                                //                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
-//                                skipped += 1
-//                                all += 1
-//                                numVecPair += 1
-//
-//                            }
-//
-//                    }
-//                }
 
 
 
