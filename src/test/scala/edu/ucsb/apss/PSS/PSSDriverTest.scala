@@ -134,17 +134,12 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            val answer = driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, debug = true, outputDirectory = outputDir + "7").persist()
-
+            val answer = driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, debug = true, outputDirectory = outputDir + "7").count()
             val current = System.currentTimeMillis() - t1
-            //            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
-            //            println("breakdown: top 10 similarities")
-            //            top.foreach(s => println(s"breakdown: $s"))
             theoreticalStaticPartitioningValues.append(driver.theoreticalStaticPairReduction)
             actualStaticPartitioningValues.append(driver.actualStaticPairReduction)
             dynamicPartitioningValues.append(driver.dParReduction)
             timings.append(current / 1000)
-            answer.unpersist()
         }
 
 

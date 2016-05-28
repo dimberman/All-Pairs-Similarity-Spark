@@ -30,7 +30,7 @@ case class PSSConfig(
                       balanceStage2: Boolean = true,
                       output: String = "/tmp/",
                       histTitle: String = "histogram",
-                      debug: Boolean = true
+                      debug: Boolean = false
 
                     )
 
@@ -102,7 +102,7 @@ object Main {
 
         val executionValues = config.thresholds
         val buckets = config.numLayers
-        val vecs = (new TextToVectorConverter).convertTweetsToVectors(par, removeSWords = true, maxWeight = config.maxWeight)
+        val vecs = (new TextToVectorConverter).convertTweetsToVectors(par, removeSWords = false, maxWeight = config.maxWeight)
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
         val unbalancedStdDevs = ArrayBuffer[Double]()
         val balancedStdDevs = ArrayBuffer[Double]()
