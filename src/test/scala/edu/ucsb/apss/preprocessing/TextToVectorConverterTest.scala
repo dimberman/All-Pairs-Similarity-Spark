@@ -1,6 +1,7 @@
 package edu.ucsb.apss.preprocessing
 
 import edu.ucsb.apss.Context
+import edu.ucsb.apss.util.PartitionUtil
 
 import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
 
@@ -18,4 +19,12 @@ class TextToVectorConverterTest extends FlatSpec with Matchers with BeforeAndAft
        modifiedData(0) shouldEqual modifiedData(1)
        modifiedData(3) shouldEqual modifiedData(4)
      }
+
+    it should  "normalize"  in {
+        val input = "bananas yummy yummy bananas bananas candy candy apple charlie"
+        val converter = new TextToVectorConverter
+        val vec = converter.convertTweetToVector(input)
+        val normalized = PartitionUtil.normalizeVector(vec)
+        println(normalized)
+    }
 }

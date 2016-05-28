@@ -1,5 +1,6 @@
 package edu.ucsb.apss.partitioning
 
+import edu.ucsb.apss.InvertedIndex.SimpleInvertedIndex
 import org.apache.log4j.Logger
 
 import scala.collection.mutable.{Set => MSet, Map => MMap}
@@ -172,7 +173,6 @@ object LoadBalancer extends Serializable {
 
     def loadAssignmentRefinement(input: MMap[Key, MSet[Key]], bucketSizes: Map[Key, Long]): MMap[Key, MSet[Key]] = {
         var reduceable = true
-        val outerLoop = new Breaks
         val innerLoop = new Breaks
         val nonReduceable = MSet[(Int,Int)]()
         var i = 0
@@ -211,7 +211,6 @@ object LoadBalancer extends Serializable {
     def balanceByPartition(numPartitions: Int, balancedVectorMap: Map[Key, List[Key]], bucketSizes: Map[Key, Long]): Map[Key, Int] = {
         val inp = MMap() ++ balancedVectorMap.mapValues(MSet() ++ _.toSet).map(identity)
         val sortedByCost = inp.map(calculateCost(_, bucketSizes)).toList.sortBy(-_._2)
-        val partitionMap: MMap[Int, Int] = MMap().withDefaultValue(0)
         val minHeap = scala.collection.mutable.PriorityQueue.empty(MinOrder)
         val partMap: MMap[Key, Int] = MMap[Key, Int]()
         for (i <- 0 to numPartitions) {
@@ -227,6 +226,27 @@ object LoadBalancer extends Serializable {
 
     }
 
+
+    def calculateWeight(index:Int,iter:Iterator[((Int,Int),Iterable[SimpleInvertedIndex])],balancedMapping: Map[Key, List[Key]] ,bmap:Map[(Int,Int),Long]):Iterator[(Int,Long)] = {
+        //                val (index,iter) = x
+        iter.map {
+            case i =>
+                val mainValue = i._1
+                val mainWeight = bmap(mainValue)
+                val comparisons = balancedMapping(mainValue).map(mainWeight * bmap(_)).sum
+                (index, comparisons)
+        }
+    }
+
+    def calculateWeightByKey(key:(Int,Int),iter:Iterable[SimpleInvertedIndex],balancedMapping: Map[Key, List[Key]] ,bmap:Map[(Int,Int),Long]):Iterator[Long] = {
+        //                val (index,iter) = x
+        iter.map {
+            case i =>
+                val mainWeight = bmap(key)
+                val comparisons = balancedMapping(key).map(mainWeight * bmap(_)).sum
+                comparisons
+        }.toIterator
+    }
 
 
     def calculateCost(input: ((Key), MSet[Key]), bucketSizes: Map[Key, Long]): (Key, Long) = {

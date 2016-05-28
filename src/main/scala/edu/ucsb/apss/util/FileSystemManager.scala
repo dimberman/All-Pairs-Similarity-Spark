@@ -1,9 +1,12 @@
 package edu.ucsb.apss.util
 
+import java.io.{BufferedReader, InputStreamReader, File}
+
 import edu.ucsb.apss.InvertedIndex.SimpleInvertedIndex
+import edu.ucsb.apss.PSS.Similarity
 import edu.ucsb.apss.partitioning.PartitionHasher
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.{FSDataOutputStream, Path}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SerializableWritable, SparkEnv, TaskContext}
@@ -11,7 +14,7 @@ import org.apache.spark.{SerializableWritable, SparkEnv, TaskContext}
 /**
   * Created by dimberman on 4/14/16.
   */
-class FileSystemManager(local:Boolean = false) extends Serializable {
+case class FileSystemManager(local: Boolean = false, outputDir: String = "") extends Serializable {
 
 
     def readVecPartition(key: (Int, Int), id: String, broadcastedConf: Broadcast[SerializableWritable[Configuration]], taskContext: TaskContext): Iterator[VectorWithNorms] = {
@@ -97,8 +100,6 @@ class FileSystemManager(local:Boolean = false) extends Serializable {
     //    }
 
 
-
-
     def cleanup(id: String, BVConf: Broadcast[SerializableWritable[Configuration]]) = {
         val file = s"/tmp/$id/"
         val path = new Path(file)
@@ -121,6 +122,38 @@ class FileSystemManager(local:Boolean = false) extends Serializable {
             output.close()
         }
 
+
+    }
+
+
+    def genOutputStream(key: (Int, Int), BVConf: Broadcast[SerializableWritable[Configuration]]) = {
+        val hashedKey = PartitionHasher.partitionHash(key)
+        val partitionFile = s"$outputDir/" + hashedKey
+        val path = new Path(partitionFile)
+        val fs = path.getFileSystem(BVConf.value.value)
+        val env = SparkEnv.get
+        val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
+        fs.create(path, false, bufferSize)
+    }
+
+
+    def genOutputStream(key: Int, BVConf: Broadcast[SerializableWritable[Configuration]]) = {
+        val hashedKey = key
+        val partitionFile = s"$outputDir/" + hashedKey
+        val path = new Path(partitionFile)
+        val fs = path.getFileSystem(BVConf.value.value)
+        val env = SparkEnv.get
+        val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
+        fs.create(path, false, bufferSize)
+    }
+
+
+    def writeSimilaritiesToFile(f: Seq[Similarity], output: FSDataOutputStream) = {
+
+        for (s <- f) {
+            val out = s.toString + "\n"
+            output.writeBytes(out)
+        }
 
     }
 

@@ -109,17 +109,12 @@ object StaticPartitioner extends Serializable {
 
                         var res = 0
                         while (
-                            (tMax > sumLeaders(res)._2 ||
+                            tMax > sumLeaders(res)._2 ||
                               tSum > maxLeaders(res)._2 ||
                               threshold / maxLeaders(res)._2 > l1norm ||
-                              threshold / sumLeaders(res)._2 > vec.lInf) && res < bucket) {
+                              threshold / sumLeaders(res)._2 > vec.lInf) {
                             res += 1
                         }
-                        //                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap) < threshold) {
-                        //                                res += 1
-                        //                            }
-                        //                            if(getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res-1), idealMap) > threshold && bucket != (res-1))
-                        //                                println(s"maximal ideal: ($bucket, $res) " + getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap))
                         res -= 1
                         if(res < 0) res = bucket
                         val ans = res

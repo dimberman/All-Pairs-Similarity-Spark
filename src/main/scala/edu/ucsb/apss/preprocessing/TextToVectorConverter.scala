@@ -215,23 +215,22 @@ class TextToVectorConverter extends Serializable {
         val vec = table.transform(filtered)
         val ans = vec.toSparse
 
-//        val filterVals =  ans.indices.zip(ans.values).filter{case(a,b) => b > maxWeight }.map(_._1).toSet
+        //        val filterVals =  ans.indices.zip(ans.values).filter{case(a,b) => b > maxWeight }.map(_._1).toSet
         var i = 0
-//        val max5 =  ans.indices.zip(ans.values).sortBy(-_._2).take(ans.values.size/20).map(_._1).toSet
-        val max5 =  Set[Int]()
+        //        val max5 =  ans.indices.zip(ans.values).sortBy(-_._2).take(ans.values.size/20).map(_._1).toSet
+        val max5 = Set[Int]()
 
-//        val dfInd = ans.indices.filter( dfFilterSet.contains)
-
+        //        val dfInd = ans.indices.filter( dfFilterSet.contains)
 
 
         val answer = ans.indices.zip(ans.values)
-//          .filterNot{ case(a,b) => dfFilterSet.contains(a) || max5.contains(a)}
+          //          .filterNot{ case(a,b) => dfFilterSet.contains(a) || max5.contains(a)}
           .unzip
         val (filterIndices, filteredValues) = answer
 
-        new SparseVector(filterIndices.size, filterIndices.toArray, filteredValues.toArray)
-    }
+        normalizeVector(new SparseVector(filterIndices.size, filterIndices.toArray, filteredValues.toArray) )
 
+    }
 
     def removeStopWords(s: Seq[String]): Seq[String] = {
         s.filterNot(stopWords.contains)
@@ -244,19 +243,6 @@ class TextToVectorConverter extends Serializable {
     }
 
 
-    def indexOf(term: Any): Int = nonNegativeMod(term.##, numFeatures)
-
-
-    def transform(document: Iterable[_], maxWeight: Int): (Vector, mutable.HashMap[Int, Double]) = {
-        val termFrequencies = mutable.HashMap.empty[Int, Double]
-        document.foreach { term =>
-            val i = indexOf(term)
-            val t = termFrequencies.getOrElse(i, 0.0)
-            if (t < maxWeight)
-                termFrequencies.put(i, termFrequencies.getOrElse(i, 0.0) + 1.0)
-        }
-        (Vectors.sparse(numFeatures, termFrequencies.toSeq), termFrequencies)
-    }
 
     def generateTable(maxWeight: Int) = {
         new HashingTF(10000) {
