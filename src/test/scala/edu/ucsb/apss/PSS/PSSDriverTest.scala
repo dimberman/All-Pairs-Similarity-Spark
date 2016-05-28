@@ -19,18 +19,14 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     val outputDir = s"/tmp/output/${sc.applicationId}"
     val driver = new PSSDriver(local = true)
 
-    after {
-
-    }
 
     "apss" should "calculate the most similar vectors" in {
         val par = sc.parallelize(Seq("a a a a", "a a b b", "a b f g ", "b b b b"))
         val converter = new TextToVectorConverter
         val vecs = par.map(converter.convertTweetToVector(_))
         val answer = driver.run(sc, vecs, 1, .4,outputDirectory = outputDir+"a")
-//        val x = answer.collect().sortBy(_._1)
-//        x.foreach(println)
-        answer.foreach(println)
+        val x = answer.collect().sortBy(_._1)
+        x.foreach(println)
 
     }
 
@@ -107,7 +103,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
 
 
-    "the driver" should "a" in {
+    it should "a" in {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
 
         val converter = new TextToVectorConverter
@@ -124,7 +120,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            val answer = driver.run(sc, vecs, buckets, threshold, debug = true,   outputDirectory = outputDir+"7").persist()
+            val answer = driver.run(sc, vecs, buckets, threshold,  outputDirectory = outputDir+"7").persist()
 
             val current = System.currentTimeMillis() - t1
             //            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)

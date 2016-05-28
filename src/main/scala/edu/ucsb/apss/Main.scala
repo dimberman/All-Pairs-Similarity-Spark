@@ -2,7 +2,6 @@ package edu.ucsb.apss
 
 import edu.ucsb.apss.PSS.PSSDriver
 import edu.ucsb.apss.preprocessing.TextToVectorConverter
-import edu.ucsb.apss.util.FileSystemManager
 import org.apache.log4j.Logger
 
 import org.apache.spark.{SparkContext, SparkConf}
@@ -27,7 +26,7 @@ case class PSSConfig(
                       numLayers: Int = 21,
                       balanceStage1: Boolean = true,
                       balanceStage2: Boolean = true,
-                      output: String = "/tmp/",
+                      output: String = "/user/output",
                       histTitle: String = "histogram",
                       debug: Boolean = false
 
@@ -92,14 +91,10 @@ object Main {
         val par = sc.textFile(config.input)
         println(s"taking in from ${config.input}")
         println(s"default par: ${sc.defaultParallelism}")
-
         val executionValues = config.thresholds
         val buckets = config.numLayers
         val vecs = par.map((new TextToVectorConverter).convertTweetToVector(_))
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
-        val unbalancedStdDevs = ArrayBuffer[Double]()
-        val balancedStdDevs = ArrayBuffer[Double]()
-
         val actualStaticPartitioningValues = ArrayBuffer[Long]()
         val dynamicPartitioningValues = ArrayBuffer[Long]()
         val timings = ArrayBuffer[Long]()
@@ -112,13 +107,9 @@ object Main {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            driver.run(sc, vecs, buckets, threshold, debug = config.debug, outputDirectory = config.output + s"${sc.applicationId}/output")
+            driver.run(sc, vecs, buckets, threshold,debug = config.debug, outputDirectory = config.output).count()
             val current = System.currentTimeMillis() - t1
             log.info(s"breakdown: apss with threshold $threshold using $buckets buckets took ${current / 1000} seconds")
-
-
-            unbalancedStdDevs.append(driver.unbalStdDev)
-            balancedStdDevs.append(driver.balStdDev)
             theoreticalStaticPartitioningValues.append(driver.theoreticalStaticPairReduction)
             actualStaticPartitioningValues.append(driver.actualStaticPairReduction)
             dynamicPartitioningValues.append(driver.dParReduction)
@@ -140,8 +131,6 @@ object Main {
         log.info("breakdown: theoretical % reduction," + theoreticalStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
         log.info("breakdown:actual % reduction," + actualStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
         log.info("breakdown:dynamic pairs filtered," + dynamicPartitioningValues.foldRight("")((a, b) => a + "," + b))
-        if(config.debug) log.info("breakdown: unbalanced std dev," + unbalancedStdDevs.mkString(","))
-        if(config.debug) log.info("breakdown: balanced std dev," + balancedStdDevs.mkString(","))
         log.info("breakdown:timing," + timings.mkString(","))
     }
 
