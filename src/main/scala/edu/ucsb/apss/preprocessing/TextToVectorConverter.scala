@@ -193,7 +193,7 @@ class TextToVectorConverter extends Serializable {
 
 
     def convertTweetsToVectors(r: RDD[String], topToRemove: Int = 0, removeSWords: Boolean = false, maxWeight: Int = Int.MaxValue) = {
-        val corpusWeights = r.map(convertTweetToVector(_))
+        val corpusWeights = r.map(convertTextToVector(_))
           .map(s => MMap() ++ s.indices.zip(s.values).toMap).reduce {
             case (a, b) =>
                 b.keys.foreach {
@@ -205,11 +205,11 @@ class TextToVectorConverter extends Serializable {
         }.filter(a => a._2 > 1000|| a._2 < 2).keySet.toSet
 
 
-        r.map(convertTweetToVector(_,topToRemove,removeSWords, maxWeight,corpusWeights))
+        r.map(convertTextToVector(_,topToRemove,removeSWords, maxWeight,corpusWeights))
         .map(normalizeVector(_,corpusWeights))
     }
 
-    def convertTweetToVector(s: String, topToRemove: Int = 0, removeSWords: Boolean = false, maxWeight: Int = Int.MaxValue, dfFilterSet: Set[Int] = Set()): SparseVector = {
+    def convertTextToVector(s: String, topToRemove: Int = 0, removeSWords: Boolean = false, maxWeight: Int = Int.MaxValue, dfFilterSet: Set[Int] = Set()): SparseVector = {
         val table = new HashingTF(10000)
         val filtered = if (removeSWords) removeStopWords(s.split(" ").toSeq) else s.split(" ").toSeq
         val vec = table.transform(filtered)

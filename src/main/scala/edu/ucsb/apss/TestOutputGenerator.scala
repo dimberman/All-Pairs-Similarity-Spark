@@ -28,7 +28,7 @@ object TestOutputGenerator {
 
     def run(sc:SparkContext, path:String)  = {
         val input =  sc.textFile(path)
-        val vecs = input.map((new TextToVectorConverter).convertTweetToVector(_)).zipWithIndex
+        val vecs = input.map((new TextToVectorConverter).convertTextToVector(_)).zipWithIndex
         val BVVec = sc.broadcast(vecs.collect())
 
 

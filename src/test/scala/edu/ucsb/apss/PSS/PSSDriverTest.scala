@@ -31,7 +31,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     "apss" should "calculate the most similar vectors" in {
         val par = sc.parallelize(Seq("a a a a", "a a b b", "a b f g ", "b b b b"))
         val converter = new TextToVectorConverter
-        val vecs = par.map(converter.convertTweetToVector(_))
+        val vecs = par.map(converter.convertTextToVector(_))
         val answer = driver.calculateCosineSimilarity(sc, vecs, 1, .4, outputDirectory = outputDir + "a").collect()
         //        val x = answer.collect().sortBy(_._1)
         //        x.foreach(println)
@@ -47,7 +47,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     it should "not break when athere is a high threshold" in {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
         val converter = new TextToVectorConverter
-        val vecs = par.map(converter.convertTweetToVector(_))
+        val vecs = par.map(converter.convertTextToVector(_))
         val answer = driver.calculateCosineSimilarity(sc, vecs, 5, .5, outputDirectory = outputDir + "1")
         val x = answer.collect()
         //        x.foreach(println)
@@ -58,7 +58,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     it should "not break when there is a high threshold" in {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
         val converter = new TextToVectorConverter
-        val vecs = par.map(converter.convertTweetToVector(_))
+        val vecs = par.map(converter.convertTextToVector(_))
         val answer = driver.calculateCosineSimilarity(sc, vecs, 3, 0.9, outputDirectory = outputDir + "2")
         val x = answer.collect()
         //        x.foreach(println)
@@ -74,7 +74,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val expected = e.toMap
 
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
-        val vecs = par.map((new TextToVectorConverter).convertTweetToVector(_))
+        val vecs = par.map((new TextToVectorConverter).convertTextToVector(_))
         //        val v = vecs.collect()
         //          .map(_.toDense)
         //        v.foreach(println)
@@ -97,7 +97,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val expected = e.toMap
 
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
-        val vecs = par.map((new TextToVectorConverter).convertTweetToVector(_))
+        val vecs = par.map((new TextToVectorConverter).convertTextToVector(_))
         //        val v = vecs.collect()
         //          .map(_.toDense)
         //        v.foreach(println)
@@ -121,7 +121,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
 
         val converter = new TextToVectorConverter
-        val vecs = par.map(converter.convertTweetToVector(_))
+        val vecs = par.map(converter.convertTextToVector(_))
         val executionValues = List(.9)
         val buckets = 41
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
@@ -165,7 +165,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     ignore should "b" in {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/10k-clueweb.txt")
         val converter = new TextToVectorConverter
-        val vecs = par.map(converter.convertTweetToVector(_, maxWeight = 3, removeSWords = true, topToRemove = 4))
+        val vecs = par.map(converter.convertTextToVector(_, maxWeight = 3, removeSWords = true, topToRemove = 4))
         val executionValues = List(.9)
         val buckets = 21
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()

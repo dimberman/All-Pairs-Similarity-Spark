@@ -15,7 +15,7 @@ class TextToVectorConverterTest extends FlatSpec with Matchers with BeforeAndAft
        val input = sc.parallelize(Seq("I like bananas", "bananas are yummy", "bananas", "bananas", "bananas"))
        val converter = new TextToVectorConverter
        val testData = sc.parallelize(Seq("I like bananas", "I like bananas", "bananas are yummy", "bananas", "bananas", "bananas"))
-       val modifiedData = testData.map(converter.convertTweetToVector(_)).collect()
+       val modifiedData = testData.map(converter.convertTextToVector(_)).collect()
        modifiedData(0) shouldEqual modifiedData(1)
        modifiedData(3) shouldEqual modifiedData(4)
      }
@@ -23,7 +23,7 @@ class TextToVectorConverterTest extends FlatSpec with Matchers with BeforeAndAft
     it should  "normalize"  in {
         val input = "bananas yummy yummy bananas bananas candy candy apple charlie"
         val converter = new TextToVectorConverter
-        val vec = converter.convertTweetToVector(input)
+        val vec = converter.convertTextToVector(input)
         val normalized = PartitionUtil.normalizeVector(vec)
         println(normalized)
     }

@@ -102,7 +102,7 @@ object Main {
 
         val executionValues = config.thresholds
         val buckets = config.numLayers
-        val vecs = (new TextToVectorConverter).convertTweetsToVectors(par, removeSWords = false, maxWeight = config.maxWeight)
+        val vecs = par.map((new TextToVectorConverter).convertTextToVector(_, removeSWords = false, maxWeight = config.maxWeight))
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
         val unbalancedStdDevs = ArrayBuffer[Double]()
         val balancedStdDevs = ArrayBuffer[Double]()
