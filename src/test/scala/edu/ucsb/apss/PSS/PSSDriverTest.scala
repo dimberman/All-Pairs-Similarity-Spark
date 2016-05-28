@@ -1,10 +1,13 @@
 package edu.ucsb.apss.PSS
 
+import java.io.File
+
+import edu.ucsb.apss.util.FileSystemManager
 import edu.ucsb.apss.{TestOutputGenerator, Context}
 import edu.ucsb.apss.preprocessing.TextToVectorConverter
 import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
 import org.scalatest.{BeforeAndAfter, Matchers, FlatSpec}
-
+import org.apache.commons.io.FileUtils
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -12,25 +15,32 @@ import scala.collection.mutable.ArrayBuffer
   * Created by dimberman on 1/18/16.
   */
 class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
+
     import edu.ucsb.apss.util.PartitionUtil._
 
     val sc = Context.sc
 
-    val outputDir = s"/tmp/output/${sc.applicationId}"
+    val outputDir = s"/tmp/output/${sc.applicationId}/"
     val driver = new PSSDriver(local = true)
 
     after {
-
+        val f = new File(outputDir)
+        FileUtils.deleteDirectory(f)
     }
 
     "apss" should "calculate the most similar vectors" in {
         val par = sc.parallelize(Seq("a a a a", "a a b b", "a b f g ", "b b b b"))
         val converter = new TextToVectorConverter
         val vecs = par.map(converter.convertTweetToVector(_))
-        val answer = driver.calculateCosineSimilarity(sc, vecs, 1, .4,outputDirectory = outputDir+"a")
-//        val x = answer.collect().sortBy(_._1)
-//        x.foreach(println)
-        answer.foreach(println)
+        val answer = driver.calculateCosineSimilarity(sc, vecs, 1, .4, outputDirectory = outputDir + "a").collect()
+        //        val x = answer.collect().sortBy(_._1)
+        //        x.foreach(println)
+        val expected = Array[(Long,Long,Double)]((1, 0, 0.7071067811865475),
+            (2, 0, 0.5),
+            (3, 1, 0.7071067811865475),
+            (2, 1, 0.7071067811865475),
+            (3, 2, 0.5))
+        answer shouldEqual expected
 
     }
 
@@ -38,7 +48,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
         val converter = new TextToVectorConverter
         val vecs = par.map(converter.convertTweetToVector(_))
-        val answer = driver.calculateCosineSimilarity(sc, vecs, 5, .5, outputDirectory = outputDir+"1")
+        val answer = driver.calculateCosineSimilarity(sc, vecs, 5, .5, outputDirectory = outputDir + "1")
         val x = answer.collect()
         //        x.foreach(println)
 
@@ -49,9 +59,9 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
         val converter = new TextToVectorConverter
         val vecs = par.map(converter.convertTweetToVector(_))
-        val answer = driver.calculateCosineSimilarity(sc, vecs, 3, 0.9, outputDirectory = outputDir+"2")
+        val answer = driver.calculateCosineSimilarity(sc, vecs, 3, 0.9, outputDirectory = outputDir + "2")
         val x = answer.collect()
-//        x.foreach(println)
+        //        x.foreach(println)
 
     }
 
@@ -60,7 +70,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val d = new PSSDriver(local = true)
 
         val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
-        val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
+        val e = testData.mapValues { v => truncateAt(v, 2) }.collect()
         val expected = e.toMap
 
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
@@ -68,12 +78,12 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         //        val v = vecs.collect()
         //          .map(_.toDense)
         //        v.foreach(println)
-        d.calculateCosineSimilarity(sc, vecs, 5, 0.6,outputDirectory = outputDirec).collect()
-        val answer = sc.textFile(outputDirec+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect().sorted
+        d.calculateCosineSimilarity(sc, vecs, 5, 0.6, outputDirectory = outputDirec).collect()
+        val answer = sc.textFile(outputDirec + "/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong), a(2).toDouble)).collect().sorted
         println(s"count: ${answer.size}")
-        answer.foreach{
-            case(i,j) =>
-                 println(s"for pair $i, expected: ${expected(i)} got: $j")
+        answer.foreach {
+            case (i, j) =>
+                println(s"for pair $i, expected: ${expected(i)} got: $j")
                 expected(i) shouldEqual (j +- .011)
         }
     }
@@ -83,7 +93,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val d = new PSSDriver(local = true)
 
         val testData = TestOutputGenerator.run(sc, "/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
-        val e =  testData.mapValues{v => truncateAt(v,2)}.collect()
+        val e = testData.mapValues { v => truncateAt(v, 2) }.collect()
         val expected = e.toMap
 
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
@@ -92,10 +102,10 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         //          .map(_.toDense)
         //        v.foreach(println)
         d.calculateCosineSimilarity(sc, vecs, 5, 0.0, outputDirectory = outputDirec).collect()
-        val answer = sc.textFile(outputDirec+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect().sorted
+        val answer = sc.textFile(outputDirec + "/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong), a(2).toDouble)).collect().sorted
         println(s"count: ${answer.size}")
-        answer.foreach{
-            case(i,j) =>
+        answer.foreach {
+            case (i, j) =>
                 //                println(s"for pair $i, expected: ${expected(i)} got: $j")
                 expected(i) shouldEqual (j +- .011)
         }
@@ -111,7 +121,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
 
         val converter = new TextToVectorConverter
-        val vecs =   par.map(converter.convertTweetToVector(_))
+        val vecs = par.map(converter.convertTweetToVector(_))
         val executionValues = List(.9)
         val buckets = 41
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
@@ -124,7 +134,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            val answer = driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, debug = true,   outputDirectory = outputDir+"7").persist()
+            val answer = driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, debug = true, outputDirectory = outputDir + "7").persist()
 
             val current = System.currentTimeMillis() - t1
             //            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
@@ -147,9 +157,9 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         println("breakdown: ************histogram******************")
         //        println("breakdown:," + buckets.foldRight("")((a,b) => a + "," + b))
         println("breakdown:threshold," + executionValues.mkString(","))
-        println("breakdown: theoretical pairs removed,"  + theoreticalStaticPartitioningValues.mkString(","))
-        println("breakdown: actual pairs removed,"  + theoreticalStaticPartitioningValues.mkString(","))
-        println("breakdown: theoretical % reduction,"  + theoreticalStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
+        println("breakdown: theoretical pairs removed," + theoreticalStaticPartitioningValues.mkString(","))
+        println("breakdown: actual pairs removed," + theoreticalStaticPartitioningValues.mkString(","))
+        println("breakdown: theoretical % reduction," + theoreticalStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
         println("breakdown:actual % reduction," + actualStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
         println("breakdown:dynamic pairs filtered," + dynamicPartitioningValues.foldRight("")((a, b) => a + "," + b))
         println("breakdown:timing," + timings.mkString(","))
@@ -160,7 +170,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     ignore should "b" in {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/10k-clueweb.txt")
         val converter = new TextToVectorConverter
-        val vecs =   par.map(converter.convertTweetToVector(_,maxWeight = 3, removeSWords = true, topToRemove = 4))
+        val vecs = par.map(converter.convertTweetToVector(_, maxWeight = 3, removeSWords = true, topToRemove = 4))
         val executionValues = List(.9)
         val buckets = 41
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
@@ -173,7 +183,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            val answer = driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, outputDirectory = outputDir+"8").persist()
+            val answer = driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, outputDirectory = outputDir + "8").persist()
 
             val current = System.currentTimeMillis() - t1
             //            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
@@ -196,57 +206,56 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         println("breakdown: ************histogram******************")
         //        println("breakdown:," + buckets.foldRight("")((a,b) => a + "," + b))
         println("breakdown:threshold," + executionValues.mkString(","))
-        println("breakdown: theoretical pairs removed,"  + theoreticalStaticPartitioningValues.mkString(","))
-        println("breakdown: actual pairs removed,"  + theoreticalStaticPartitioningValues.mkString(","))
-        println("breakdown: theoretical % reduction,"  + theoreticalStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
+        println("breakdown: theoretical pairs removed," + theoreticalStaticPartitioningValues.mkString(","))
+        println("breakdown: actual pairs removed," + theoreticalStaticPartitioningValues.mkString(","))
+        println("breakdown: theoretical % reduction," + theoreticalStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
         println("breakdown:actual % reduction," + actualStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
         println("breakdown:dynamic pairs filtered," + dynamicPartitioningValues.foldRight("")((a, b) => a + "," + b))
         println("breakdown:timing," + timings.mkString(","))
     }
 
-//    it should "remove more pairs statically as the threshold goes up" in {
-//        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
-//        val converter = new TweetToVectorConverter
-//        val vecs =   par.map(converter.convertTweetToVector)
-//        val executionValues = List(0.5,0.7,0.8,0.9)
-//        val staticPartitioningValues = ArrayBuffer[Long]()
-//        val dynamicPartitioningValues = ArrayBuffer[Long]()
-//        val timings = ArrayBuffer[Long]()
-//
-//
-//        val driver = new PSSDriver
-//
-//        for (i <- executionValues) {
-//            val threshold = i
-//            val t1 = System.currentTimeMillis()
-//            val answer = driver.run(sc, vecs, 21, threshold).persist()
-//            answer.count()
-//            val current = System.currentTimeMillis() - t1
-//            val top = answer.map{case(i,j,sim) => Similarity(i,j,sim)}.top(10)
-//            println("breakdown: top 10 similarities")
-//            top.foreach(s => println(s"breakdown: $s"))
-//            staticPartitioningValues.append(driver.sParReduction)
-//            dynamicPartitioningValues.append(driver.dParReduction)
-//            timings.append(current/1000)
-//            answer.unpersist()
-//        }
-//
-//        val numPairs = driver.numVectors*driver.numVectors/2
-//        println("breakdown:")
-//        println("breakdown:")
-//        println("breakdown: ************histogram******************")
-//        //        println("breakdown:," + buckets.foldRight("")((a,b) => a + "," + b))
-//        println("breakdown:," + executionValues.foldRight("")((a,b) => a + "," + b))
-//        println("breakdown:staticPairRemoval," + staticPartitioningValues.foldRight("")((a,b) => a + "," + b))
-//        println("breakdown:static%reduction," + staticPartitioningValues.map(a => a.toDouble/numPairs).foldRight("")((a,b) => a + "," + b))
-//        println("breakdown:dynamic," + dynamicPartitioningValues.foldRight("")((a,b) => a + "," + b))
-//        println("breakdown:timing," + timings.foldRight("")((a,b) => a + "," + b))
-//
-//
-//    }
-//
-//
-
+    //    it should "remove more pairs statically as the threshold goes up" in {
+    //        val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
+    //        val converter = new TweetToVectorConverter
+    //        val vecs =   par.map(converter.convertTweetToVector)
+    //        val executionValues = List(0.5,0.7,0.8,0.9)
+    //        val staticPartitioningValues = ArrayBuffer[Long]()
+    //        val dynamicPartitioningValues = ArrayBuffer[Long]()
+    //        val timings = ArrayBuffer[Long]()
+    //
+    //
+    //        val driver = new PSSDriver
+    //
+    //        for (i <- executionValues) {
+    //            val threshold = i
+    //            val t1 = System.currentTimeMillis()
+    //            val answer = driver.run(sc, vecs, 21, threshold).persist()
+    //            answer.count()
+    //            val current = System.currentTimeMillis() - t1
+    //            val top = answer.map{case(i,j,sim) => Similarity(i,j,sim)}.top(10)
+    //            println("breakdown: top 10 similarities")
+    //            top.foreach(s => println(s"breakdown: $s"))
+    //            staticPartitioningValues.append(driver.sParReduction)
+    //            dynamicPartitioningValues.append(driver.dParReduction)
+    //            timings.append(current/1000)
+    //            answer.unpersist()
+    //        }
+    //
+    //        val numPairs = driver.numVectors*driver.numVectors/2
+    //        println("breakdown:")
+    //        println("breakdown:")
+    //        println("breakdown: ************histogram******************")
+    //        //        println("breakdown:," + buckets.foldRight("")((a,b) => a + "," + b))
+    //        println("breakdown:," + executionValues.foldRight("")((a,b) => a + "," + b))
+    //        println("breakdown:staticPairRemoval," + staticPartitioningValues.foldRight("")((a,b) => a + "," + b))
+    //        println("breakdown:static%reduction," + staticPartitioningValues.map(a => a.toDouble/numPairs).foldRight("")((a,b) => a + "," + b))
+    //        println("breakdown:dynamic," + dynamicPartitioningValues.foldRight("")((a,b) => a + "," + b))
+    //        println("breakdown:timing," + timings.foldRight("")((a,b) => a + "," + b))
+    //
+    //
+    //    }
+    //
+    //
 
 
 }

@@ -285,7 +285,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
                 }
                 writer.close()
                 answer
-        }
+        }.persist()
 
 
 
@@ -296,11 +296,13 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
         similarities.count()
         logDynamicPartitioningOutput(skipped, reduced, all, manager, sc, BVConf, driverAccum, similarities)
         manager.cleanup(sc.applicationId, BVConf)
-        sc.textFile(outputDir).map(a => {
+        val a = sc.textFile(outputDir).map(a => {
             val sp = a.split(",")
-            (a(0).toLong, a(1).toLong, a(2).toDouble)
+            (sp(0).toLong, sp(1).toLong, sp(2).toDouble)
         }
         )
+        val p = a.collect()
+        a
     }
 
 
