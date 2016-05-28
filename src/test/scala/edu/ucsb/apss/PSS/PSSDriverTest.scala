@@ -35,7 +35,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val answer = driver.calculateCosineSimilarity(sc, vecs, 1, .4, outputDirectory = outputDir + "a").collect()
         //        val x = answer.collect().sortBy(_._1)
         //        x.foreach(println)
-        val expected = Array[(Long,Long,Double)]((1, 0, 0.7071067811865475),
+        val expected = Array[(Long, Long, Double)]((1, 0, 0.7071067811865475),
             (2, 0, 0.5),
             (3, 1, 0.7071067811865475),
             (2, 1, 0.7071067811865475),
@@ -74,7 +74,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val expected = e.toMap
 
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
-        val vecs = par.map(BagOfWordToVectorConverter.convert)
+        val vecs = par.map((new TextToVectorConverter).convertTweetToVector(_))
         //        val v = vecs.collect()
         //          .map(_.toDense)
         //        v.foreach(println)
@@ -97,17 +97,17 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val expected = e.toMap
 
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
-        val vecs = par.map(BagOfWordToVectorConverter.convert)
+        val vecs = par.map((new TextToVectorConverter).convertTweetToVector(_))
         //        val v = vecs.collect()
         //          .map(_.toDense)
         //        v.foreach(println)
-        d.calculateCosineSimilarity(sc, vecs, 5, 0.0, outputDirectory = outputDirec).collect()
-        val answer = sc.textFile(outputDirec + "/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong), a(2).toDouble)).collect().sorted
+        val answer = d.calculateCosineSimilarity(sc, vecs, 5, 0.0, outputDirectory = outputDirec).collect()
+//         sc.textFile(outputDirec + "/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong), a(2).toDouble)).collect().sorted
         println(s"count: ${answer.size}")
         answer.foreach {
-            case (i, j) =>
-                //                println(s"for pair $i, expected: ${expected(i)} got: $j")
-                expected(i) shouldEqual (j +- .011)
+            case (i, j, sim) =>
+                println(s"for pair ${(i,j)}, expected: ${expected((i,j))} got: $sim")
+                expected((i,j)) shouldEqual (sim +- .011)
         }
 
     }
