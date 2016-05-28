@@ -137,6 +137,17 @@ case class FileSystemManager(local: Boolean = false, outputDir: String = "") ext
     }
 
 
+    def genOutputStream(key: Int, BVConf: Broadcast[SerializableWritable[Configuration]]) = {
+        val hashedKey = key
+        val partitionFile = s"$outputDir/" + hashedKey
+        val path = new Path(partitionFile)
+        val fs = path.getFileSystem(BVConf.value.value)
+        val env = SparkEnv.get
+        val bufferSize = env.conf.getInt("spark.buffer.size", 65536)
+        fs.create(path, false, bufferSize)
+    }
+
+
     def writeSimilaritiesToFile(f: Seq[Similarity], output: FSDataOutputStream) = {
 
         for (s <- f) {

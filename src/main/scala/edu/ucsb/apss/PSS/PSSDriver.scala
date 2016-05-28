@@ -3,10 +3,10 @@ package edu.ucsb.apss.PSS
 import edu.ucsb.apss.Accumulators._
 import edu.ucsb.apss.InvertedIndex.InvertedIndex._
 import edu.ucsb.apss.InvertedIndex.{FeaturePair, SimpleInvertedIndex, InvertedIndex}
-import edu.ucsb.apss.util.{VectorWithNorms, BoundedPriorityQueue, FileSystemManager}
+import edu.ucsb.apss.util.{PartitionUtil, VectorWithNorms, BoundedPriorityQueue, FileSystemManager}
 
 
-import edu.ucsb.apss.partitioning.{LoadBalancer, StaticPartitioner}
+import edu.ucsb.apss.partitioning.{PartitionHasher, LoadBalancer, StaticPartitioner}
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark._
 import org.apache.spark.broadcast.Broadcast
@@ -24,7 +24,7 @@ import scala.collection.mutable.ArrayBuffer
   */
 
 
-class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local:Boolean = false) {
+class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean = false) {
 
     import edu.ucsb.apss.util.PartitionUtil._
     import edu.ucsb.apss.PSS.SimilarityCalculator._
@@ -40,6 +40,8 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local:Boolean = 
     var theoreticalStaticPairReduction = 0L
 
     var actualStaticPairReduction = 0L
+    var unbalStdDev = 0.0
+    var balStdDev = 0.0
 
     var outputDir = ""
     var dParReduction = 0L
@@ -49,12 +51,12 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local:Boolean = 
     var dPar = 0L
     var numVectors = 0L
     var numComparisons = 0L
-    val manager = new FileSystemManager(outputDir=outputDir)
+    val manager = new FileSystemManager(outputDir = outputDir)
 
     type BucketizedVector = ((Int, Int), VectorWithNorms)
 
 
-    def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true,outputDirectory: String = "/tmp/output") = {
+    def run(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true, outputDirectory: String = "/tmp/output") = {
         debugPSS = debug
         outputDir = outputDirectory
         val l1partitionedVectors = bucketizeVectors(sc, vectors, numBuckets, threshold)
@@ -151,6 +153,60 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local:Boolean = 
 
         //        log.info(s"breakdown: default parallelism: ${sc.defaultParallelism}")
 
+        if (debugPSS) {
+
+            val BVMap = sc.broadcast(bucketizedVectorSizeMap)
+            val BVParallelism = sc.broadcast(sc.defaultParallelism)
+
+
+
+            val p = LoadBalancer.stdDev(partMap.map(_._2.toLong).toList)
+
+            val unbalancedWeights = invertedIndexes.map { case (k, v) => (PartitionHasher.partitionHash(k) % BVParallelism.value, (k, v, k)) }.repartition(sc.defaultParallelism).groupByKey.map {
+                case (key, iter) =>
+                    val t = iter.map {
+                        case (k, i, _) =>
+                            LoadBalancer.calculateWeightByKey(k, i, balancedMapping, BVMap.value)
+                    }.toList.map(b => b.sum)
+                    (key, t)
+            }.mapValues(_.sum).reduceByKey(_ + _).collect().toList
+
+
+
+            //              .repartition(24).mapPartitionsWithIndex{case(iter,ind) =>LoadBalancer.calculateWeight(iter,ind, balancedMapping, BVMap.value)}
+            //              .reduceByKey(_ + _).collect().toList
+            val unbalancedStdDev = LoadBalancer.stdDev(unbalancedWeights.map(_._2))
+
+
+            unbalStdDev = unbalancedStdDev
+
+
+            val balancedWeights = invertedIndexes.map {
+                case (bucket, inv) =>
+                    //                if (balancedPairs(bucket) > 11) {
+                    //                    List((bucket._1, (bucket, inv, (0, 2))), (numBuckets - bucket._1, (bucket, inv, (1, 2))))
+                    //                }
+                    //                else {
+                    (partMap(bucket), (bucket, inv, (0, 1)))
+                //                }
+            }.repartition(sc.defaultParallelism).groupByKey.map {
+                case (key, iter) =>
+                    val t = iter.map {
+                        case (k, i, _) =>
+                            LoadBalancer.calculateWeightByKey(k, i, balancedMapping, BVMap.value)
+                    }.toList.map(b => b.sum)
+                    (key, t)
+            }.mapValues(_.sum).reduceByKey(_ + _).collect().toList
+            val balancedStdDev = LoadBalancer.stdDev(balancedWeights.map(_._2))
+            balStdDev = balancedStdDev
+            log.info(s"breakdown: unbalanced partition std-dev: $unbalancedStdDev")
+            log.info(s"breakdown: balanced partition std-dev: $balancedStdDev")
+
+
+        }
+
+
+
         val balancedInvertedIndexes = invertedIndexes.map {
             case (bucket, inv) =>
                 //                if (balancedPairs(bucket) > 11) {
@@ -170,91 +226,186 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local:Boolean = 
         val driverAccum = invertedIndexes.context.accumulable(ArrayBuffer[DebugVal](), "debug info")(DebugAcummulatorParam)
 
 
+        val BVManager = sc.broadcast(FileSystemManager(local = this.local, outputDir = outputDir))
 
-        log.info(buckAccum.value)
-        val BVManager = sc.broadcast(FileSystemManager(local = this.local,outputDir = outputDir))
 
-        val similarities: RDD[Similarity] = balancedInvertedIndexes.values.flatMap {
-            case (((bucket, tl), invIter, (ind, mod))) =>
-                val manager =  BVManager.value
-                var numVecPair = 0
-                val start = System.currentTimeMillis()
-                val filtered = BVPairs.value((bucket, tl))
-                val numBuc = filtered.size
-//                                val answer = new BoundedPriorityQueue[Similarity](1000)
-                val answer = new ArrayBuffer[Similarity]()
-                var answerIndex = 0
-                val writer = manager.genOutputStream((bucket,tl), BVConf)
-                filtered.foreach {
-                    case (key) =>
-                        val externalVectors = manager.readVecPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.map(_._1)
-                        //                        println(s"comparing ${(bucket,tl)} to $key")
-                        invIter.foreach {
-                            inv =>
-                                val indexMap = InvertedIndex.extractIndexMapFromSimple(inv)
-                                val scores = new Array[Double](calcSize)
-                                val invertedIndex = inv.indices
-                                externalVectors.foreach {
-                                    case v_j =>
-                                        val VectorWithNorms(_, _, _, vec, ind_j, _) = v_j
+        val x = balancedInvertedIndexes.groupByKey().collect().map { case (a, b) => b.toList }.flatMap { case (a) => a.map(x => (x._1, x._2.toList)) }
 
-                                        calculateScores(vec, invertedIndex, indexMap, scores)
+        val y = balancedInvertedIndexes.groupByKey().collect()
+        val similarities = balancedInvertedIndexes.groupByKey().flatMap {
+            case (k, i) =>
+                val manager = BVManager.value
+                val writer = manager.genOutputStream(k, BVConf)
 
-                                        indexMap.foreach {
-                                            case (ind_i, l) =>
-                                                if (ind_i == ind_j || (bucket, tl) == key && ind_i < ind_j) {
+                val answer = i.flatMap {
+                    case (((bucket, tl), invIter, (ind, mod))) =>
+                        var numVecPair = 0
+                        val start = System.currentTimeMillis()
+                        val filtered = BVPairs.value((bucket, tl))
+                        val numBuc = filtered.size
+                        //                                val answer = new BoundedPriorityQueue[Similarity](1000)
+                        val answer = new ArrayBuffer[Similarity]()
+                        var answerIndex = 0
+                        filtered.foreach {
+                            case (key) =>
+                                val externalVectors = manager.readVecPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.map(_._1)
+                                //                        println(s"comparing ${(bucket,tl)} to $key")
+                                invIter.foreach {
+                                    inv =>
+                                        val indexMap = InvertedIndex.extractIndexMapFromSimple(inv)
+                                        val scores = new Array[Double](calcSize)
+                                        val invertedIndex = inv.indices
+                                        externalVectors.foreach {
+                                            case v_j =>
+                                                val VectorWithNorms(_, _, _, vec, ind_j, _) = v_j
+
+                                                calculateScores(vec, invertedIndex, indexMap, scores)
+
+                                                indexMap.foreach {
+                                                    case (ind_i, l) =>
+                                                        if (ind_i == ind_j || (bucket, tl) == key && ind_i < ind_j) {
+
+                                                        }
+                                                        else if (scores(l) > threshold) {
+                                                            val c = Similarity(ind_i, ind_j.toLong, scores(l))
+                                                            answer += c
+                                                            answerIndex += 1
+                                                            if (answerIndex > 100) {
+                                                                manager.writeSimilaritiesToFile(answer, writer)
+                                                                answer.clear()
+                                                                answerIndex = 0
+                                                            }
+
+                                                            all += 1
+                                                            reduced += 1
+                                                            numVecPair += 1
+
+                                                        }
+                                                        else {
+                                                            //                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
+                                                            skipped += 1
+                                                            all += 1
+                                                            numVecPair += 1
+
+                                                        }
 
                                                 }
-                                                else if (scores(l) > threshold) {
-                                                    val c = Similarity(ind_i, ind_j.toLong, scores(l))
-                                                    answer += c
-                                                    answerIndex +=1
-                                                    if (answerIndex > 100){
-                                                        manager.writeSimilaritiesToFile(answer, writer)
-                                                        answer.clear()
-                                                        answerIndex = 0
-                                                    }
-
-                                                    all += 1
-                                                    reduced += 1
-                                                    numVecPair += 1
-
+                                                if (answer.nonEmpty) {
+                                                    manager.writeSimilaritiesToFile(answer, writer)
+                                                    answer.clear()
+                                                    answerIndex = 0
                                                 }
-                                                else {
-                                                    //                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
-                                                    skipped += 1
-                                                    all += 1
-                                                    numVecPair += 1
 
-                                                }
+                                                clearScoreArray(scores)
 
                                         }
-                                        if(answer.nonEmpty){
-                                            manager.writeSimilaritiesToFile(answer, writer)
-                                            answer.clear()
-                                            answerIndex = 0
-                                        }
 
-                                        clearScoreArray(scores)
 
                                 }
 
 
                         }
 
-
+                        val time = (System.currentTimeMillis() - start).toDouble / 1000
+                        //                driverAccum += s"breakdown: partition ${(inv.bucket,inv.tl)} took $time seconds to calculate $numVecPair pairs from $numBuc buckets"
+                        driverAccum += DebugVal((bucket, tl), time, numVecPair, numBuc)
+                        answer.toList
                 }
                 writer.close()
+                answer
+        }
 
-                val time = (System.currentTimeMillis() - start).toDouble / 1000
-                //                driverAccum += s"breakdown: partition ${(inv.bucket,inv.tl)} took $time seconds to calculate $numVecPair pairs from $numBuc buckets"
-                driverAccum += DebugVal((bucket, tl), time, numVecPair, numBuc)
-                answer.toList
-        }.persist()
+
+
+
+
+        log.info(buckAccum.value)
+
+        //        val similarities: RDD[Similarity] = balancedInvertedIndexes.values.flatMap {
+        //            case (((bucket, tl), invIter, (ind, mod))) =>
+        //                val manager = BVManager.value
+        //                var numVecPair = 0
+        //                val start = System.currentTimeMillis()
+        //                val filtered = BVPairs.value((bucket, tl))
+        //                val numBuc = filtered.size
+        //                //                                val answer = new BoundedPriorityQueue[Similarity](1000)
+        //                val answer = new ArrayBuffer[Similarity]()
+        //                var answerIndex = 0
+        //                val writer = manager.genOutputStream((bucket, tl), BVConf)
+        //                filtered.foreach {
+        //                    case (key) =>
+        //                        val externalVectors = manager.readVecPartition(key, id, BVConf, org.apache.spark.TaskContext.get()).toList.zipWithIndex.map(_._1)
+        //                        //                        println(s"comparing ${(bucket,tl)} to $key")
+        //                        invIter.foreach {
+        //                            inv =>
+        //                                val indexMap = InvertedIndex.extractIndexMapFromSimple(inv)
+        //                                val scores = new Array[Double](calcSize)
+        //                                val invertedIndex = inv.indices
+        //                                externalVectors.foreach {
+        //                                    case v_j =>
+        //                                        val VectorWithNorms(_, _, _, vec, ind_j, _) = v_j
+        //
+        //                                        calculateScores(vec, invertedIndex, indexMap, scores)
+        //
+        //                                        indexMap.foreach {
+        //                                            case (ind_i, l) =>
+        //                                                if (ind_i == ind_j || (bucket, tl) == key && ind_i < ind_j) {
+        //
+        //                                                }
+        //                                                else if (scores(l) > threshold) {
+        //                                                    val c = Similarity(ind_i, ind_j.toLong, scores(l))
+        //                                                    answer += c
+        //                                                    answerIndex += 1
+        //                                                    if (answerIndex > 100) {
+        //                                                        manager.writeSimilaritiesToFile(answer, writer)
+        //                                                        answer.clear()
+        //                                                        answerIndex = 0
+        //                                                    }
+        //
+        //                                                    all += 1
+        //                                                    reduced += 1
+        //                                                    numVecPair += 1
+        //
+        //                                                }
+        //                                                else {
+        //                                                    //                                            log.info(s"skipped vector pair ($ind_i, $ind_j) with score ${score(l)}")
+        //                                                    skipped += 1
+        //                                                    all += 1
+        //                                                    numVecPair += 1
+        //
+        //                                                }
+        //
+        //                                        }
+        //                                        if (answer.nonEmpty) {
+        //                                            manager.writeSimilaritiesToFile(answer, writer)
+        //                                            answer.clear()
+        //                                            answerIndex = 0
+        //                                        }
+        //
+        //                                        clearScoreArray(scores)
+        //
+        //                                }
+        //
+        //
+        //                        }
+        //
+        //
+        //                }
+        //                writer.close()
+        //
+        //                val time = (System.currentTimeMillis() - start).toDouble / 1000
+        //                //                driverAccum += s"breakdown: partition ${(inv.bucket,inv.tl)} took $time seconds to calculate $numVecPair pairs from $numBuc buckets"
+        //                driverAccum += DebugVal((bucket, tl), time, numVecPair, numBuc)
+        //                answer.toList
+        //        }.persist()
         similarities.count()
         logDynamicPartitioningOutput(skipped, reduced, all, manager, sc, BVConf, driverAccum, similarities)
         manager.cleanup(sc.applicationId, BVConf)
-        similarities.map(s => (s.i, s.j, s.similarity))
+        sc.textFile(outputDir).map(a => {
+            val sp = a.split(",")
+            (a(0).toLong, a(1).toLong, a(2).toDouble)
+        }
+        )
     }
 
 
