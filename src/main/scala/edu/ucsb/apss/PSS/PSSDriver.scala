@@ -76,7 +76,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     }
 
 
-   private[apss] def bucketizeVectors(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double): RDD[(Int, VectorWithNorms)] = {
+    private[apss] def bucketizeVectors(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double): RDD[(Int, VectorWithNorms)] = {
         val count = vectors.count
 
         numVectors = count
@@ -122,8 +122,6 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
 
         theoreticalStaticPairReduction = numComparisons - unbalancedComparisons
 
-
-
         if (debugPSS) logLoadBalancing(unbalanced, unbalancedComparisons)
 
         val ans = if (balance) LoadBalancer.balance(unbalanced, bucketizedVectorSizeMap, loadBalance, Some(log), debugPSS) else unbalanced
@@ -144,21 +142,12 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
 
         val partMap = LoadBalancer.balanceByPartition(sc.defaultParallelism, balancedMapping, bucketizedVectorSizeMap)
 
-        //        log.info("breakdown: pre-load balancing")
-        //        unbalancedPairs.foreach { case (k, v) => log.info(s"breakdown: $k: $v") }
-        //
-        //        log.info("breakdown: post-load balancing")
-        //        balancedPairs.foreach { case (k, v) => log.info(s"breakdown: $k: $v") }
-
-
-        //        log.info(s"breakdown: default parallelism: ${sc.defaultParallelism}")
-
         if (debugPSS) {
+
+            log.info(s"breakdown: default parallelism: ${sc.defaultParallelism}")
 
             val BVMap = sc.broadcast(bucketizedVectorSizeMap)
             val BVParallelism = sc.broadcast(sc.defaultParallelism)
-
-
 
             val p = LoadBalancer.stdDev(partMap.map(_._2.toLong).toList)
 
@@ -170,25 +159,14 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
                     }.toList.map(b => b.sum)
                     (key, t)
             }.mapValues(_.sum).reduceByKey(_ + _).collect().toList
-
-
-
-            //              .repartition(24).mapPartitionsWithIndex{case(iter,ind) =>LoadBalancer.calculateWeight(iter,ind, balancedMapping, BVMap.value)}
-            //              .reduceByKey(_ + _).collect().toList
             val unbalancedStdDev = LoadBalancer.stdDev(unbalancedWeights.map(_._2))
-
 
             unbalStdDev = unbalancedStdDev
 
 
             val balancedWeights = invertedIndexes.map {
                 case (bucket, inv) =>
-                    //                if (balancedPairs(bucket) > 11) {
-                    //                    List((bucket._1, (bucket, inv, (0, 2))), (numBuckets - bucket._1, (bucket, inv, (1, 2))))
-                    //                }
-                    //                else {
                     (partMap(bucket), (bucket, inv, (0, 1)))
-                //                }
             }.repartition(sc.defaultParallelism).groupByKey.map {
                 case (key, iter) =>
                     val t = iter.map {
@@ -209,12 +187,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
 
         val balancedInvertedIndexes = invertedIndexes.map {
             case (bucket, inv) =>
-                //                if (balancedPairs(bucket) > 11) {
-                //                    List((bucket._1, (bucket, inv, (0, 2))), (numBuckets - bucket._1, (bucket, inv, (1, 2))))
-                //                }
-                //                else {
                 (partMap(bucket), (bucket, inv, (0, 1)))
-            //                }
         }.repartition(sc.defaultParallelism)
 
         val BVConf = sc.broadcast(new SerializableWritable(sc.hadoopConfiguration))
