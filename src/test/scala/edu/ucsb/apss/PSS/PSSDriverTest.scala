@@ -27,7 +27,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val par = sc.parallelize(Seq("a a a a", "a a b b", "a b f g ", "b b b b"))
         val converter = new TextToVectorConverter
         val vecs = par.map(converter.convertTweetToVector(_))
-        val answer = driver.run(sc, vecs, 1, .4,outputDirectory = outputDir+"a")
+        val answer = driver.calculateCosineSimilarity(sc, vecs, 1, .4,outputDirectory = outputDir+"a")
 //        val x = answer.collect().sortBy(_._1)
 //        x.foreach(println)
         answer.foreach(println)
@@ -38,7 +38,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
         val converter = new TextToVectorConverter
         val vecs = par.map(converter.convertTweetToVector(_))
-        val answer = driver.run(sc, vecs, 5, .5, outputDirectory = outputDir+"1")
+        val answer = driver.calculateCosineSimilarity(sc, vecs, 5, .5, outputDirectory = outputDir+"1")
         val x = answer.collect()
         //        x.foreach(println)
 
@@ -49,7 +49,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/100-tweets-bag.txt")
         val converter = new TextToVectorConverter
         val vecs = par.map(converter.convertTweetToVector(_))
-        val answer = driver.run(sc, vecs, 3, 0.9, outputDirectory = outputDir+"2")
+        val answer = driver.calculateCosineSimilarity(sc, vecs, 3, 0.9, outputDirectory = outputDir+"2")
         val x = answer.collect()
 //        x.foreach(println)
 
@@ -68,7 +68,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         //        val v = vecs.collect()
         //          .map(_.toDense)
         //        v.foreach(println)
-        d.run(sc, vecs, 5, 0.6,outputDirectory = outputDirec).collect()
+        d.calculateCosineSimilarity(sc, vecs, 5, 0.6,outputDirectory = outputDirec).collect()
         val answer = sc.textFile(outputDirec+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect().sorted
         println(s"count: ${answer.size}")
         answer.foreach{
@@ -91,7 +91,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         //        val v = vecs.collect()
         //          .map(_.toDense)
         //        v.foreach(println)
-        d.run(sc, vecs, 5, 0.0, outputDirectory = outputDirec).collect()
+        d.calculateCosineSimilarity(sc, vecs, 5, 0.0, outputDirectory = outputDirec).collect()
         val answer = sc.textFile(outputDirec+"/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong),a(2).toDouble) ).collect().sorted
         println(s"count: ${answer.size}")
         answer.foreach{
@@ -124,7 +124,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            val answer = driver.run(sc, vecs, buckets, threshold, debug = true,   outputDirectory = outputDir+"7").persist()
+            val answer = driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, debug = true,   outputDirectory = outputDir+"7").persist()
 
             val current = System.currentTimeMillis() - t1
             //            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
@@ -173,7 +173,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            val answer = driver.run(sc, vecs, buckets, threshold, outputDirectory = outputDir+"8").persist()
+            val answer = driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, outputDirectory = outputDir+"8").persist()
 
             val current = System.currentTimeMillis() - t1
             //            val top = answer.map { case (i, j, sim) => Sim(i, j, sim) }.top(10)
