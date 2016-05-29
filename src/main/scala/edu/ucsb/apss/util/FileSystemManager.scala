@@ -9,12 +9,12 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataOutputStream, Path}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{SerializableWritable, SparkEnv, TaskContext}
+import org.apache.spark.{Logging, SerializableWritable, SparkEnv, TaskContext}
 
 /**
   * Created by dimberman on 4/14/16.
   */
-case class FileSystemManager(local: Boolean = false, outputDir: String = "") extends Serializable {
+case class FileSystemManager(local: Boolean = false, outputDir: String = "") extends Serializable with Logging {
 
 
     def readVecPartition(key: (Int, Int), id: String, broadcastedConf: Broadcast[SerializableWritable[Configuration]], taskContext: TaskContext): Iterator[VectorWithNorms] = {
@@ -150,6 +150,8 @@ case class FileSystemManager(local: Boolean = false, outputDir: String = "") ext
 
     def writeSimilaritiesToFile(f: Seq[Similarity], output: FSDataOutputStream) = {
 
+        val path = outputDir
+        log.info(s"breakdown: writing to file $path")
         for (s <- f) {
             val out = s.toString + "\n"
             output.writeBytes(out)

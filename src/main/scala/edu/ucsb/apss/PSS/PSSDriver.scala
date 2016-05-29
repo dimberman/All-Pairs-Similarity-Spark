@@ -199,12 +199,13 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
         val driverAccum = invertedIndexes.context.accumulable(ArrayBuffer[DebugVal](), "debug info")(DebugAcummulatorParam)
 
 
-        val BVManager = sc.broadcast(FileSystemManager(local = this.local, outputDir = outputDir))
+        val BVManager = sc.broadcast(FileSystemManager(outputDir = outputDir))
+        log.info(s"breakdown: created reader for file $outputDir")
 
 
-        val x = balancedInvertedIndexes.groupByKey().collect().map { case (a, b) => b.toList }.flatMap { case (a) => a.map(x => (x._1, x._2.toList)) }
+//        val x = balancedInvertedIndexes.groupByKey().collect().map { case (a, b) => b.toList }.flatMap { case (a) => a.map(x => (x._1, x._2.toList)) }
 
-        val y = balancedInvertedIndexes.groupByKey().collect()
+//        val y = balancedInvertedIndexes.groupByKey().collect()
         val similarities = balancedInvertedIndexes.groupByKey().flatMap {
             case (k, i) =>
                 val manager = BVManager.value

@@ -112,7 +112,7 @@ object Main {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, debug = config.debug, outputDirectory = config.output + s"${sc.applicationId}/output")
+            driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, debug = config.debug, outputDirectory = config.output + s"${sc.applicationId}/output").count()
             val current = System.currentTimeMillis() - t1
             log.info(s"breakdown: apss with threshold $threshold using $buckets buckets took ${current / 1000} seconds")
 
