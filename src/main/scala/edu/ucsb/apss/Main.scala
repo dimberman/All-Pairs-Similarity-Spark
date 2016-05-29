@@ -2,7 +2,6 @@ package edu.ucsb.apss
 
 import edu.ucsb.apss.PSS.PSSDriver
 import edu.ucsb.apss.preprocessing.TextToVectorConverter
-import edu.ucsb.apss.util.FileSystemManager
 import org.apache.log4j.Logger
 
 import org.apache.spark.{SparkContext, SparkConf}

@@ -14,11 +14,11 @@ import org.apache.spark.{Logging, SerializableWritable, SparkEnv, TaskContext}
 /**
   * Created by dimberman on 4/14/16.
   */
-case class FileSystemManager(local: Boolean = false, outputDir: String = "") extends Serializable with Logging {
+case class FileSystemManager(local: Boolean = false, outputDir: String = "/tmp/output") extends Serializable with Logging {
 
 
     def readVecPartition(key: (Int, Int), id: String, broadcastedConf: Broadcast[SerializableWritable[Configuration]], taskContext: TaskContext): Iterator[VectorWithNorms] = {
-        val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
+        val partitionFile = s"$outputDir/vec/" + PartitionHasher.partitionHash(key)
         readVecFile(new Path(partitionFile), broadcastedConf, taskContext)
         //         List[VectorWithNorms]().toIterator
     }
@@ -37,7 +37,7 @@ case class FileSystemManager(local: Boolean = false, outputDir: String = "") ext
 
 
     def readInvPartition(key: (Int, Int), id: String, broadcastedConf: Broadcast[SerializableWritable[Configuration]], taskContext: TaskContext): Iterator[SimpleInvertedIndex] = {
-        val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
+        val partitionFile = s"$outputDir/inv/" + PartitionHasher.partitionHash(key)
         readInvFile(new Path(partitionFile), broadcastedConf, taskContext)
         //         List[VectorWithNorms]().toIterator
     }
@@ -101,7 +101,7 @@ case class FileSystemManager(local: Boolean = false, outputDir: String = "") ext
 
 
     def cleanup(id: String, BVConf: Broadcast[SerializableWritable[Configuration]]) = {
-        val file = s"/tmp/$id/"
+        val file = s"$outputDir"
         val path = new Path(file)
         val fs = path.getFileSystem(BVConf.value.value)
         fs.delete(path, true)
@@ -109,7 +109,7 @@ case class FileSystemManager(local: Boolean = false, outputDir: String = "") ext
     }
 
     def writeVecFile(key: (Int, Int), f: Iterable[VectorWithNorms], id: String, BVConf: Broadcast[SerializableWritable[Configuration]]) = {
-        val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
+        val partitionFile = s"$outputDir/vec/" + PartitionHasher.partitionHash(key)
         val path = new Path(partitionFile)
         val fs = path.getFileSystem(BVConf.value.value)
 
@@ -128,7 +128,7 @@ case class FileSystemManager(local: Boolean = false, outputDir: String = "") ext
 
     def genOutputStream(key: (Int, Int), BVConf: Broadcast[SerializableWritable[Configuration]]) = {
         val hashedKey = PartitionHasher.partitionHash(key)
-        val partitionFile = s"$outputDir/" + hashedKey
+        val partitionFile = s"$outputDir/out/" + hashedKey
         val path = new Path(partitionFile)
         val fs = path.getFileSystem(BVConf.value.value)
         val env = SparkEnv.get
@@ -139,7 +139,7 @@ case class FileSystemManager(local: Boolean = false, outputDir: String = "") ext
 
     def genOutputStream(key: Int, BVConf: Broadcast[SerializableWritable[Configuration]]) = {
         val hashedKey = key
-        val partitionFile = s"$outputDir/" + hashedKey
+        val partitionFile = s"$outputDir/out/" + hashedKey
         val path = new Path(partitionFile)
         val fs = path.getFileSystem(BVConf.value.value)
         val env = SparkEnv.get
@@ -161,7 +161,7 @@ case class FileSystemManager(local: Boolean = false, outputDir: String = "") ext
 
 
     def writeInvFile(key: (Int, Int), f: Iterable[SimpleInvertedIndex], id: String, BVConf: Broadcast[SerializableWritable[Configuration]]) = {
-        val partitionFile = s"/tmp/$id/" + PartitionHasher.partitionHash(key)
+        val partitionFile = s"$outputDir/inv/" + PartitionHasher.partitionHash(key)
         val path = new Path(partitionFile)
         val fs = path.getFileSystem(BVConf.value.value)
 
