@@ -199,14 +199,9 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
         val buckAccum = invertedIndexes.context.accumulator("", "debug info")(LineAcummulatorParam)
         val driverAccum = invertedIndexes.context.accumulable(ArrayBuffer[DebugVal](), "debug info")(DebugAcummulatorParam)
 
-
         val BVManager = sc.broadcast(FileSystemManager(outputDir = outputDir))
         log.info(s"breakdown: created reader for file $outputDir")
 
-
-//        val x = balancedInvertedIndexes.groupByKey().collect().map { case (a, b) => b.toList }.flatMap { case (a) => a.map(x => (x._1, x._2.toList)) }
-
-//        val y = balancedInvertedIndexes.groupByKey().collect()
         val similarities = balancedInvertedIndexes.groupByKey().flatMap {
             case (k, i) =>
                 val manager = BVManager.value
@@ -298,7 +293,8 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
         //activate filewriter
         similarities.count()
         logDynamicPartitioningOutput(skipped, reduced, all, manager, sc, BVConf, driverAccum, similarities)
-        val a = sc.textFile(outputDir+"/out/*").map(a => {
+        //TODO this should be a function inside FileSystemManager
+        val a = sc.textFile(manager.cacheDirectory).map(a => {
             val sp = a.split(",")
             (sp(0).toLong, sp(1).toLong, sp(2).toDouble)
         }
