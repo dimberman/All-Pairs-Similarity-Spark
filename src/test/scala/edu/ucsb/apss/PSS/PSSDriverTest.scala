@@ -78,17 +78,17 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         //        val v = vecs.collect()
         //          .map(_.toDense)
         //        v.foreach(println)
-        d.calculateCosineSimilarity(sc, vecs, 5, 0.6, outputDirectory = outputDirec).collect()
-        val answer = sc.textFile(outputDirec + "/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong), a(2).toDouble)).collect().sorted
+        val answer = d.calculateCosineSimilarity(sc, vecs, 5, 0.6, outputDirectory = outputDirec).collect().sorted
+//         sc.textFile(outputDirec + "/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong), a(2).toDouble)).collect().sorted
         println(s"count: ${answer.size}")
         answer.foreach {
-            case (i, j) =>
-                println(s"for pair $i, expected: ${expected(i)} got: $j")
-                expected(i) shouldEqual (j +- .011)
+            case (i, j,sim) =>
+                println(s"for pair $i, expected: ${expected((i,j))} got: $j")
+                expected((i,j)) shouldEqual (sim +- .011)
         }
     }
 
-    "it" should "contian only correct output" in {
+    "qewerq" should "contian only correct output" in {
         val outputDirec = s"${this.outputDir}18/correct"
         val d = new PSSDriver(local = true)
 
@@ -101,13 +101,13 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         //        val v = vecs.collect()
         //          .map(_.toDense)
         //        v.foreach(println)
-        d.calculateCosineSimilarity(sc, vecs, 5, 0.0, outputDirectory = outputDirec).collect()
-        val answer = sc.textFile(outputDirec + "/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong), a(2).toDouble)).collect().sorted
+        val answer = d.calculateCosineSimilarity(sc, vecs, 5, 0.6, outputDirectory = outputDirec).collect().sorted
+        //         sc.textFile(outputDirec + "/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong), a(2).toDouble)).collect().sorted
         println(s"count: ${answer.size}")
         answer.foreach {
-            case (i, j) =>
-                //                println(s"for pair $i, expected: ${expected(i)} got: $j")
-                expected(i) shouldEqual (j +- .011)
+            case (i, j,sim) =>
+                println(s"for pair $i, expected: ${expected((i,j))} got: $j")
+                expected((i,j)) shouldEqual (sim +- .011)
         }
 
     }

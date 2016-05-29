@@ -43,7 +43,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     var unbalStdDev = 0.0
     var balStdDev = 0.0
 
-    var outputDir = ""
+    var outputDir = "/tmp/output"
     var dParReduction = 0L
     var bucketizedVectorSizeMap: Map[(Int, Int), Long] = _
     var appId: String = _
@@ -51,7 +51,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     var dPar = 0L
     var numVectors = 0L
     var numComparisons = 0L
-    val manager = new FileSystemManager(outputDir = outputDir)
+    var manager:FileSystemManager = _
 
     type BucketizedVector = ((Int, Int), VectorWithNorms)
 
@@ -59,6 +59,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     def calculateCosineSimilarity(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true, outputDirectory: String = "/tmp/output") = {
         debugPSS = debug
         outputDir = outputDirectory
+        manager = new FileSystemManager(outputDir = outputDir)
         val l1partitionedVectors = bucketizeVectors(sc, vectors, numBuckets, threshold)
 
         val staticPartitionedVectors = staticPartition(l1partitionedVectors, threshold, sc)
@@ -198,13 +199,9 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
         val buckAccum = invertedIndexes.context.accumulator("", "debug info")(LineAcummulatorParam)
         val driverAccum = invertedIndexes.context.accumulable(ArrayBuffer[DebugVal](), "debug info")(DebugAcummulatorParam)
 
+        val BVManager = sc.broadcast(FileSystemManager(outputDir = outputDir))
+        log.info(s"breakdown: created reader for file $outputDir")
 
-        val BVManager = sc.broadcast(FileSystemManager(local = this.local, outputDir = outputDir))
-
-
-        val x = balancedInvertedIndexes.groupByKey().collect().map { case (a, b) => b.toList }.flatMap { case (a) => a.map(x => (x._1, x._2.toList)) }
-
-        val y = balancedInvertedIndexes.groupByKey().collect()
         val similarities = balancedInvertedIndexes.groupByKey().flatMap {
             case (k, i) =>
                 val manager = BVManager.value
@@ -285,7 +282,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
                 }
                 writer.close()
                 answer
-        }.persist()
+        }
 
 
 
@@ -293,15 +290,17 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
 
         log.info(buckAccum.value)
 
+        //activate filewriter
         similarities.count()
         logDynamicPartitioningOutput(skipped, reduced, all, manager, sc, BVConf, driverAccum, similarities)
-        manager.cleanup(sc.applicationId, BVConf)
-        val a = sc.textFile(outputDir).map(a => {
+        //TODO this should be a function inside FileSystemManager
+        val a = sc.textFile(manager.cacheDirectory).map(a => {
             val sp = a.split(",")
             (sp(0).toLong, sp(1).toLong, sp(2).toDouble)
         }
-        )
+        ) .persist()
         val p = a.collect()
+        manager.cleanup(sc.applicationId, BVConf)
         a
     }
 
