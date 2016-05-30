@@ -2,7 +2,6 @@ package edu.ucsb.apss
 
 import edu.ucsb.apss.PSS.PSSDriver
 import edu.ucsb.apss.preprocessing.TextToVectorConverter
-import edu.ucsb.apss.util.FileSystemManager
 import org.apache.log4j.Logger
 
 import org.apache.spark.{SparkContext, SparkConf}
@@ -24,7 +23,7 @@ case class Sim(i: Long, j: Long, sim: Double) extends Ordered[Sim] {
 case class PSSConfig(
                       input: String = "",
                       thresholds: Seq[Double] = Seq(0.9),
-                      maxWeight: Int = 1000,
+                      maxWeight: Int = 500,
                       numLayers: Int = 21,
                       balanceStage1: Boolean = true,
                       balanceStage2: Boolean = true,
@@ -119,7 +118,7 @@ object Main {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, debug = config.debug, outputDirectory = config.output + s"${sc.applicationId}/output")
+            driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, debug = config.debug, outputDirectory = config.output + s"${sc.applicationId}/output").count()
             val current = System.currentTimeMillis() - t1
             log.info(s"breakdown: apss with threshold $threshold using $buckets buckets took ${current / 1000} seconds")
 

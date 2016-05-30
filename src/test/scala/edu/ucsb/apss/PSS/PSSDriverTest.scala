@@ -78,17 +78,17 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         //        val v = vecs.collect()
         //          .map(_.toDense)
         //        v.foreach(println)
-        d.calculateCosineSimilarity(sc, vecs, 5, 0.6, outputDirectory = outputDirec).collect()
-        val answer = sc.textFile(outputDirec + "/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong), a(2).toDouble)).collect().sorted
+        val answer = d.calculateCosineSimilarity(sc, vecs, 5, 0.6, outputDirectory = outputDirec).collect().sorted
+//         sc.textFile(outputDirec + "/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong), a(2).toDouble)).collect().sorted
         println(s"count: ${answer.size}")
         answer.foreach {
-            case (i, j) =>
-                println(s"for pair $i, expected: ${expected(i)} got: $j")
-                expected(i) shouldEqual (j +- .011)
+            case (i, j,sim) =>
+                println(s"for pair $i, expected: ${expected((i,j))} got: $j")
+                expected((i,j)) shouldEqual (sim +- .011)
         }
     }
 
-    "it" should "contian only correct output" in {
+    "qewerq" should "contian only correct output" in {
         val outputDirec = s"${this.outputDir}18/correct"
         val d = new PSSDriver(local = true)
 
@@ -98,15 +98,12 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
 
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/1k-tweets-bag.txt")
         val vecs = par.map((new TextToVectorConverter).convertTextToVector(_))
-        //        val v = vecs.collect()
-        //          .map(_.toDense)
-        //        v.foreach(println)
-        val answer = d.calculateCosineSimilarity(sc, vecs, 5, 0.0, outputDirectory = outputDirec).collect()
-//         sc.textFile(outputDirec + "/*").map(s => s.split(",")).map(a => ((a(0).toLong, a(1).toLong), a(2).toDouble)).collect().sorted
+
+        val answer = d.calculateCosineSimilarity(sc, vecs, 5, 0.6, outputDirectory = outputDirec).collect().sorted
         println(s"count: ${answer.size}")
         answer.foreach {
-            case (i, j, sim) =>
-                println(s"for pair ${(i,j)}, expected: ${expected((i,j))} got: $sim")
+            case (i, j,sim) =>
+//                println(s"for pair $i, expected: ${expected((i,j))} got: $j")
                 expected((i,j)) shouldEqual (sim +- .011)
         }
 
@@ -152,6 +149,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
         println("breakdown: ************histogram******************")
         //        println("breakdown:," + buckets.foldRight("")((a,b) => a + "," + b))
         println("breakdown:threshold," + executionValues.mkString(","))
+
         println("breakdown: theoretical pairs removed," + theoreticalStaticPartitioningValues.mkString(","))
         println("breakdown: actual pairs removed," + theoreticalStaticPartitioningValues.mkString(","))
         println("breakdown: theoretical % reduction," + theoreticalStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
@@ -165,8 +163,10 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
     ignore should "b" in {
         val par = sc.textFile("/Users/dimberman/Code/All-Pairs-Similarity-Spark/src/test/resources/edu/ucsb/apss/10k-clueweb.txt")
         val converter = new TextToVectorConverter
-        val vecs = par.map(converter.convertTextToVector(_, maxWeight = 3, removeSWords = true, topToRemove = 4))
-        val executionValues = List(.9)
+        val filter =converter.gatherCorpusWeightFilter(par, 100, false)
+        println("done creating filter")
+        val vecs = par.map(converter.convertTextToVector(_, maxWeight = 1000, removeSWords = true, topToRemove = 4, dfFilterSet = filter)).filter(_.values.nonEmpty)
+        val executionValues = List(.7)
         val buckets = 21
         val theoreticalStaticPartitioningValues = ArrayBuffer[Long]()
         val actualStaticPartitioningValues = ArrayBuffer[Long]()

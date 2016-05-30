@@ -192,8 +192,10 @@ class TextToVectorConverter extends Serializable {
         "yourselves")
 
 
-    def convertTweetsToVectors(r: RDD[String], topToRemove: Int = 0, removeSWords: Boolean = false, maxWeight: Int = Int.MaxValue) = {
-        val corpusWeights = r.map(convertTextToVector(_))
+    def gatherCorpusWeightFilter(r: RDD[String], maxDfWeight: Int = Int.MaxValue, filterLonely:Boolean = false) = {
+        val table = new HashingTF(10000)
+
+        val map = r.map(s => table.transform(s.split(" ")).toSparse)
           .map(s => MMap() ++ s.indices.zip(s.values).toMap).reduce {
             case (a, b) =>
                 b.keys.foreach {
@@ -202,11 +204,26 @@ class TextToVectorConverter extends Serializable {
                         else a(k) = b(k)
                 }
                 a
-        }.filter(a => a._2 > 1000|| a._2 < 2).keySet.toSet
+        }
 
 
-        r.map(convertTextToVector(_,topToRemove,removeSWords, maxWeight,corpusWeights))
-        .map(normalizeVector(_,corpusWeights))
+        val x = r.map(s => table.transform(s.split(" ")).toSparse)
+          .flatMap{
+              case(words) =>
+                  words.indices.map((_,1))
+          }.collect()
+
+        val topFeatures = r.map(s => table.transform(s.split(" ")).toSparse)
+          .flatMap{
+              case(words) =>
+                  words.indices.map((_,1))
+        }.reduceByKey(_+_).sortBy(-_._2).keys.take(10000/20).toSet
+
+
+
+        map.filter{case(i,weight) => weight> maxDfWeight}.keySet.toSet ++ topFeatures
+
+
     }
 
     def convertTextToVector(s: String, topToRemove: Int = 0, removeSWords: Boolean = false, maxWeight: Int = Int.MaxValue, dfFilterSet: Set[Int] = Set()): SparseVector = {
@@ -215,7 +232,8 @@ class TextToVectorConverter extends Serializable {
         val vec = table.transform(filtered)
         val ans = vec.toSparse
 
-        //        val filterVals =  ans.indices.zip(ans.values).filter{case(a,b) => b > maxWeight }.map(_._1).toSet
+        val x = dfFilterSet
+        val filterVals = ans.indices.zip(ans.values).filter { case (a, b) => b > maxWeight }.map(_._1).toSet  ++ dfFilterSet
         var i = 0
         //        val max5 =  ans.indices.zip(ans.values).sortBy(-_._2).take(ans.values.size/20).map(_._1).toSet
         val max5 = Set[Int]()
@@ -228,7 +246,7 @@ class TextToVectorConverter extends Serializable {
           .unzip
         val (filterIndices, filteredValues) = answer
 
-        normalizeVector(new SparseVector(filterIndices.size, filterIndices.toArray, filteredValues.toArray) )
+        normalizeVector(ans, filterVals)
 
     }
 
@@ -241,7 +259,6 @@ class TextToVectorConverter extends Serializable {
         val rawMod = x % mod
         rawMod + (if (rawMod < 0) mod else 0)
     }
-
 
 
     def generateTable(maxWeight: Int) = {

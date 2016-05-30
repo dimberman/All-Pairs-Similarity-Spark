@@ -46,12 +46,24 @@ object StaticPartitioner extends Serializable {
 
 
     def partitionByL1Sort(r: RDD[VectorWithIndex], numBuckets: Int, numVectors: Long): RDD[(Int, VectorWithIndex)] = {
+        val numSplits = numBuckets * (numBuckets - 1) / 2
+        val splitSize = numVectors.toFloat / numSplits
+        val rep = List.range(0,numBuckets-1).reverse.scan(numBuckets)(_+_).map(_ * splitSize)
+
         r.map(v => (l1Norm(v.vec), v))
           .sortByKey()
           .zipWithIndex()
           .map {
               case ((l1, vec), sortIndex) =>
-                  ((sortIndex.toFloat / numVectors.toFloat * numBuckets).toInt, vec)
+
+                  val ind = (sortIndex.toFloat / splitSize ).toInt
+                  if (sortIndex == 520){
+                      println("balh")
+                  }
+                  var i = 0
+                  while(i < rep.size && ind > rep(i))
+                      i += 1
+                  (i, vec)
           }
     }
 
@@ -109,14 +121,15 @@ object StaticPartitioner extends Serializable {
 
                         var res = 0
                         while (
-                            tMax > sumLeaders(res)._2 ||
+                            (tMax > sumLeaders(res)._2 ||
                               tSum > maxLeaders(res)._2 ||
                               threshold / maxLeaders(res)._2 > l1norm ||
-                              threshold / sumLeaders(res)._2 > vec.lInf) {
+                              threshold / sumLeaders(res)._2 > vec.lInf) &&
+                              res < bucket) {
                             res += 1
                         }
                         res -= 1
-                        if(res < 0) res = bucket
+                        if (res < 0) res = bucket
                         val ans = res
                         require(ans != -1, "something went wrong and there is a bucket that was never given a tl")
                         vec.associatedLeader = ans
