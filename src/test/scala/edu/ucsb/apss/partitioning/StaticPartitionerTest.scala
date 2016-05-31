@@ -62,7 +62,7 @@ class StaticPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter {
 
     }
 
-    "partitionByL1Norm" should "partition values into buckets blah blha blah" in {
+    ignore should "partition values into buckets blah blha blah" in {
         val bucketizedLargeVec = partitioner.partitionByL1Sort(partitioner.recordIndex(testRDD), 4, 20)
         bucketizedLargeVec.keys.distinct().count() shouldEqual 4
         val bucketSizes = bucketizedLargeVec.mapValues(a => 1).reduceByKey(_+_).values.collect()
@@ -70,7 +70,7 @@ class StaticPartitionerTest extends FlatSpec with Matchers with BeforeAndAfter {
     }
 
 
-    "determineBucketLeaders" should "determine the max l1 value for a bucket and match it to the corresponding key" in {
+    ignore should "determine the max l1 value for a bucket and match it to the corresponding key" in {
         val bucketized = partitioner.partitionByL1Sort(partitioner.recordIndex(testRDD), 4, 20)
         val collected = bucketized.collect()
         val bucketLeaders = partitioner.determineBucketLeaders(bucketized.mapValues(extractUsefulInfo))
