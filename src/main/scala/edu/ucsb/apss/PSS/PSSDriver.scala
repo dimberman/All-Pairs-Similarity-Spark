@@ -56,7 +56,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     type BucketizedVector = ((Int, Int), VectorWithNorms)
 
 
-    def calculateCosineSimilarity(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true, outputDirectory: String = "/tmp/output") = {
+    def calculateCosineSimilarity(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true, outputDirectory: String = "/tmp/output", uniform:Boolean = false) = {
         debugPSS = debug
         outputDir = outputDirectory
         manager = new FileSystemManager(outputDir = outputDir)
@@ -66,14 +66,14 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
 
         if (debugPSS) logStaticPartitioning(staticPartitionedVectors, threshold, numBuckets)
 
-        val invertedIndexes = generateInvertedIndexes(staticPartitionedVectors, 100)
+        val invertedIndexes = generateInvertedIndexes(staticPartitionedVectors, calculationSize)
 
         manager.writePartitionsToFile(staticPartitionedVectors)
 
         val balanceMapping = balancePSS(invertedIndexes, numBuckets)
         log.info("breakdown: balancing finished. beginning PSS")
 
-        calculateCosineSimilarityByPullingFromFile(invertedIndexes, threshold, numBuckets, balanceMapping)
+        calculateCosineSimilarityByPullingFromFile(invertedIndexes, threshold, numBuckets, balanceMapping,calcSize = calculationSize)
     }
 
 

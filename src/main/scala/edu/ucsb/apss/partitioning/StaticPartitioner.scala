@@ -45,7 +45,7 @@ object StaticPartitioner extends Serializable {
     }
 
 
-    def partitionByL1Sort(r: RDD[VectorWithIndex], numBuckets: Int, numVectors: Long): RDD[(Int, VectorWithIndex)] = {
+    def partitionByL1Sort(r: RDD[VectorWithIndex], numBuckets: Int, numVectors: Long, uniform:Boolean = false): RDD[(Int, VectorWithIndex)] = {
         val numSplits = numBuckets * (numBuckets + 1) / 2
         val splitSize = numVectors.toFloat / numSplits
         val rep = List.range(0,numBuckets).reverse.scan(numBuckets)(_+_).map(_ * splitSize)
@@ -56,14 +56,20 @@ object StaticPartitioner extends Serializable {
           .map {
               case ((l1, vec), sortIndex) =>
 
-                  val ind = sortIndex.toFloat
-                  if (sortIndex == 520){
-                      println("balh")
+                  if (uniform){
+                      ((sortIndex.toFloat/numVectors * numBuckets).toInt, vec)
                   }
-                  var i = 0
-                  while(i < numBuckets && ind > rep(i))
-                      i += 1
-                  (i, vec)
+                  else{
+                      val ind = sortIndex.toFloat
+                      if (sortIndex == 520){
+                          println("balh")
+                      }
+                      var i = 0
+                      while(i < numBuckets && ind > rep(i))
+                          i += 1
+                      (i, vec)
+                  }
+
           }
     }
 

@@ -27,8 +27,10 @@ case class PSSConfig(
                       numLayers: Int = 21,
                       balanceStage1: Boolean = true,
                       balanceStage2: Boolean = true,
+                      uniform: Boolean = false,
                       output: String = "/tmp/",
                       histTitle: String = "histogram",
+                      calculationSize: Int = 100,
                       debug: Boolean = false
 
                     )
@@ -53,6 +55,12 @@ object Main {
                   c.copy(thresholds = x)
               } text "threshold is the threshold for PSS, defaults to 0.9"
 
+            opt[Int]('s', "inv-size")
+              .optional()
+              .action { (x, c) =>
+                  c.copy(calculationSize = x)
+              } text "size of inverted index"
+
             opt[Int]('n', "numLayers")
               .optional()
               .action { (x, c) =>
@@ -74,6 +82,11 @@ object Main {
                   c.copy(histTitle = x)
               } text "title for histogram, defaults to \"histogram\""
 
+            opt[Boolean]('u', "uniform")
+              .optional()
+              .action { (x, c) =>
+                  c.copy(uniform = x)
+              } text "toggle debug logging. defaults to false"
             opt[Boolean]('d', "debug")
               .optional()
               .action { (x, c) =>
@@ -94,6 +107,7 @@ object Main {
     def run(config: PSSConfig) = {
         val conf = new SparkConf().setAppName("apss test").set("spark.dynamicAllocation.initialExecutors", "5").set("spark.yarn.executor.memoryOverhead", "600")
           .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+          .set("spark.kryoserializer.buffer.max", "128mb")
         val sc = new SparkContext(conf)
         val par = sc.textFile(config.input)
         println(s"taking in from ${config.input}")
@@ -118,7 +132,7 @@ object Main {
         for (i <- executionValues) {
             val threshold = i
             val t1 = System.currentTimeMillis()
-            driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, debug = config.debug, outputDirectory = config.output + s"${sc.applicationId}/output").count()
+            driver.calculateCosineSimilarity(sc, vecs, buckets, threshold, debug = config.debug, outputDirectory = config.output + s"${sc.applicationId}/output", uniform = config.uniform, calculationSize = config.calculationSize).count()
             val current = System.currentTimeMillis() - t1
             log.info(s"breakdown: apss with threshold $threshold using $buckets buckets took ${current / 1000} seconds")
 
@@ -145,8 +159,8 @@ object Main {
         log.info("breakdown: theoretical % reduction," + theoreticalStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
         log.info("breakdown:actual % reduction," + actualStaticPartitioningValues.map(a => a.toDouble / numPairs * 100).map(truncateAt(_, 2)).map(_ + "%").mkString(","))
         log.info("breakdown:dynamic pairs filtered," + dynamicPartitioningValues.foldRight("")((a, b) => a + "," + b))
-        if(config.debug) log.info("breakdown: unbalanced std dev," + unbalancedStdDevs.mkString(","))
-        if(config.debug) log.info("breakdown: balanced std dev," + balancedStdDevs.mkString(","))
+        if (config.debug) log.info("breakdown: unbalanced std dev," + unbalancedStdDevs.mkString(","))
+        if (config.debug) log.info("breakdown: balanced std dev," + balancedStdDevs.mkString(","))
         log.info("breakdown:timing," + timings.mkString(","))
     }
 
