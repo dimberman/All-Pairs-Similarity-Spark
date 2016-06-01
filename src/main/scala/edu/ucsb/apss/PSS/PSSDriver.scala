@@ -56,7 +56,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     type BucketizedVector = ((Int, Int), VectorWithNorms)
 
 
-    def calculateCosineSimilarity(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true, outputDirectory: String = "/tmp/output") = {
+    def calculateCosineSimilarity(sc: SparkContext, vectors: RDD[SparseVector], numBuckets: Int, threshold: Double, calculationSize: Int = 100, debug: Boolean = true, outputDirectory: String = "/tmp/output", uniform:Boolean = false) = {
         debugPSS = debug
         outputDir = outputDirectory
         manager = new FileSystemManager(outputDir = outputDir)
@@ -66,14 +66,14 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
 
         if (debugPSS) logStaticPartitioning(staticPartitionedVectors, threshold, numBuckets)
 
-        val invertedIndexes = generateInvertedIndexes(staticPartitionedVectors, 100)
+        val invertedIndexes = generateInvertedIndexes(staticPartitionedVectors, calculationSize)
 
         manager.writePartitionsToFile(staticPartitionedVectors)
 
         val balanceMapping = balancePSS(invertedIndexes, numBuckets)
         log.info("breakdown: balancing finished. beginning PSS")
 
-        calculateCosineSimilarityByPullingFromFile(invertedIndexes, threshold, numBuckets, balanceMapping)
+        calculateCosineSimilarityByPullingFromFile(invertedIndexes, threshold, numBuckets, balanceMapping,calcSize = calculationSize)
     }
 
 
@@ -83,19 +83,24 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
         numVectors = count
         numComparisons = (numVectors * (numVectors - 1)) / 2
 
-        val normalizedVectors = vectors.map(normalizeVector)
+        val normalizedVectors = vectors
+//          .map(normalizeVector)
         val indexedNormalizedVecs = recordIndex(normalizedVectors)
           .repartition(numBuckets)
 
         val l1partitionedVectors = partitionByL1Sort(indexedNormalizedVecs, numBuckets, count).mapValues(extractUsefulInfo)
         bucketSizes = l1partitionedVectors.countByKey().toList.sortBy(_._1).map(_._2.toInt)
+        val b = bucketSizes
         l1partitionedVectors
     }
 
     private[apss] def staticPartition(l1partitionedVectors: RDD[(Int, VectorWithNorms)], threshold: Double, sc: SparkContext) = {
         val bucketLeaders = determineBucketLeaders(l1partitionedVectors)
+
+        bucketLeaders.foreach{case(i,v) => println(s"leader[$i]: $v")}
         val bucketMaxes = determineBucketMaxes(l1partitionedVectors)
         val sPartitioned = partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, bucketMaxes, threshold, sc)
+
         bucketizedVectorSizeMap = sPartitioned.countByKey().toMap.withDefault(_ => 0)
         bucketizedVectorSizeMap.toList.sortBy(_._1).foreach(println)
         sPartitioned

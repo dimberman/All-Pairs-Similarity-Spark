@@ -16,9 +16,9 @@ class SimilarityCalculatorTest extends FlatSpec with Matchers with BeforeAndAfte
     import edu.ucsb.apss.PSS.SimilarityCalculator._
 
     val aVectors = List("11 10 10 13 13 12 15 14 14 17 16 18 1 1 0 3 2 5 4 7 6 9 8 5", "42 24 25 26 27 20 21 21 22 23 28 29 40 40 41 39 38 38 19 32")
-      .map(BagOfWordToVectorConverter.convert).map(normalizeVector)
+      .map(BagOfWordToVectorConverter.convert).map(normalizeVector(_))
     val bVectors = List("49 48 23 46 47 47 44 45 51 43 53 50 4 54 52", "59 58 19 57 56 60 61 62 8")
-      .map(BagOfWordToVectorConverter.convert).map(normalizeVector)
+      .map(BagOfWordToVectorConverter.convert).map(normalizeVector(_))
 
     val aFeatures = aVectors.zipWithIndex
       .map { case (v, i) => VectorWithNorms(v, i) }.flatMap(InvertedIndex.createFeaturePairs)
