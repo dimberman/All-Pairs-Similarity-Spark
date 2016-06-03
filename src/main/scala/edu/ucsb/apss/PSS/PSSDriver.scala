@@ -101,7 +101,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
         val bucketMaxes = determineBucketMaxes(l1partitionedVectors)
         val sPartitioned = partitioner.tieVectorsToHighestBuckets(l1partitionedVectors, bucketLeaders, bucketMaxes, threshold, sc)
 
-        bucketizedVectorSizeMap = sPartitioned.countByKey().toMap.withDefault(_ => 0)
+        bucketizedVectorSizeMap = sPartitioned.mapValues(v => v.vector.size.toLong).reduceByKey(_+_).collectAsMap().toMap.withDefault(_ => 0)
         bucketizedVectorSizeMap.toList.sortBy(_._1).foreach(println)
         sPartitioned
 
@@ -331,7 +331,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
         for (i <- 0 to numBuckets - 1) {
             val bSize = List.range(0, i + 1).map(x => bucketizedVectorSizeMap(i, x)).sum
             //            println(s"bsize: $bSize")
-            require(bucketSizes(i) == bSize, s"the sum of the bucketizedVectorMap values did not equal the bucketSize. Bsize: ${bucketSizes(i)}, parts: ${bucketizedVectorSizeMap.filterKeys(_._1 == i)}")
+//            require(bucketSizes(i) == bSize, s"the sum of the bucketizedVectorMap values did not equal the bucketSize. Bsize: ${bucketSizes(i)}, parts: ${bucketizedVectorSizeMap.filterKeys(_._1 == i)}")
         }
 
 
@@ -347,7 +347,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
                     var nvec = 0
                     for (i <- 0 to t) {
 
-                        require(bucketSizes(i) >= bucketizedVectorSizeMap((i, i)), s"breakdown: got negative value from bucket $i: size[$i]:${bucketSizes(i)}, partition($i,$i):${bucketizedVectorSizeMap((i, i))}")
+//                        require(bucketSizes(i) >= bucketizedVectorSizeMap((i, i)), s"breakdown: got negative value from bucket $i: size[$i]:${bucketSizes(i)}, partition($i,$i):${bucketizedVectorSizeMap((i, i))}")
 
                         nvec += v.toInt * bucketSizes(i)
                     }
@@ -408,7 +408,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
                 var nvec = 0
                 for (i <- t + 1 to b) {
 
-                    require(bucketSizes(i) >= bucketizedVectorSizeMap((i, i)), s"breakdown: got negative value from bucket $i: size[$i]:${bucketSizes(i)}, partition($i,$i):${bucketizedVectorSizeMap((i, i))}")
+//                    require(bucketSizes(i) >= bucketizedVectorSizeMap((i, i)), s"breakdown: got negative value from bucket $i: size[$i]:${bucketSizes(i)}, partition($i,$i):${bucketizedVectorSizeMap((i, i))}")
 
                     nvec += v.toInt * bucketSizes(i)
                 }
@@ -440,7 +440,7 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
             else {
                 var nvecSkipped = 0
                 for (i <- 0 to t) {
-                    require(bucketSizes(i) >= bucketizedVectorSizeMap((i, i)), s"breakdown: got negative value from bucket $i: size[$i]:${bucketSizes(i)}, partition($i,$i):${bucketizedVectorSizeMap((i, i))}")
+//                    require(bucketSizes(i) >= bucketizedVectorSizeMap((i, i)), s"breakdown: got negative value from bucket $i: size[$i]:${bucketSizes(i)}, partition($i,$i):${bucketizedVectorSizeMap((i, i))}")
                     nvecSkipped += bucketSizes(i)
                 }
                 ((b, t), (nvecSkipped, nvec))
