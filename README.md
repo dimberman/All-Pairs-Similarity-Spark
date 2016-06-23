@@ -16,7 +16,10 @@ This package is set up with sbt and assembly. Run sbt clean assembly to create a
 #running
 
 The spark command for the sample dataset is:
-spark-submit --class edu.ucsb.apss.Main apss-1.0.jar ./1k-tweets-bag.txt
+
+
+export DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+spark-submit --class edu.ucsb.apss.Main apss-1.0.jar $DIR/1k-tweets-bag.txt
 
 The package comes with the following options
 
