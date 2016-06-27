@@ -2,6 +2,7 @@ package edu.ucsb.apss
 
 import edu.ucsb.apss.preprocessing.TextToVectorConverter
 import edu.ucsb.apss.tokenization1.BagOfWordToVectorConverter
+import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkContext, SparkConf}
 
 import scala.io.Source
@@ -28,6 +29,23 @@ object TestOutputGenerator {
 
     def run(sc:SparkContext, path:String)  = {
         val input =  sc.textFile(path)
+        val vecs = input.map((new TextToVectorConverter).convertTextToVector(_)).zipWithIndex
+        val BVVec = sc.broadcast(vecs.collect())
+
+
+        val similarities = vecs.flatMap {
+            case (ivec, i) =>
+                BVVec.value.map {
+                    case (jvec, j) =>
+                        val sim = dotProduct(ivec, jvec)
+                        ((i, j), sim)
+                }
+        }.sortByKey()
+        similarities
+    }
+
+
+    def run(sc:SparkContext, input:RDD[String])  = {
         val vecs = input.map((new TextToVectorConverter).convertTextToVector(_)).zipWithIndex
         val BVVec = sc.broadcast(vecs.collect())
 

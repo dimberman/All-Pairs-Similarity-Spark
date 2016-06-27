@@ -220,17 +220,17 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
     log.info(s"breakdown: created reader for file $outputDir")
 
 
-    val oldAnswer = balancedInvertedIndexes.collect()
+//    val oldAnswer = balancedInvertedIndexes.collect()
 
-    val answer = invertedIndexDataset.collect()
-    println("rdd: " + oldAnswer.toString)
-    println("dataset: " + answer.toString)
+//    val answer = invertedIndexDataset.collect()
+//    println("rdd: " + oldAnswer.toString)
+//    println("dataset: " + answer.toString)
 
 
-    val similarities = balancedInvertedIndexes.mapPartitions {
-      case i =>
+    val similarities = balancedInvertedIndexes.groupBy(x => x.partition).flatMap {
+      case (k,i) =>
         val manager = BVManager.value
-        val writer = manager.genOutputStream(0, BVConf)
+        val writer = manager.genOutputStream(k, BVConf)
 
         val answer = i.map {
           case InvertedIndexCalcuation(ind,bucket, tl, x,y,z) =>

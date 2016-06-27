@@ -138,8 +138,6 @@ private[apss] case class FileSystemManager(local: Boolean = false, outputDir: St
 
 
     def writeSimilaritiesToFile(f: Seq[Similarity], output: FSDataOutputStream) = {
-
-        val path = outputDir
         for (s <- f) {
             val out = s.toString + "\n"
             output.writeBytes(out)
