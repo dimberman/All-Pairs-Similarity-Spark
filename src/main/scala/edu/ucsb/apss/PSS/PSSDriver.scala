@@ -233,8 +233,8 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
         val writer = manager.genOutputStream(0, BVConf)
 
         val answer = i.map {
-          case p =>
-            val InvertedIndexCalcuation(ind,bucket, tl, x,y,z) = p
+          case InvertedIndexCalcuation(ind,bucket, tl, x,y,z) =>
+//            val  = p
             val inv = SimpleInvertedIndex.reconstruct((x,y,z))
             var numVecPair = 0
             val start = System.currentTimeMillis()
