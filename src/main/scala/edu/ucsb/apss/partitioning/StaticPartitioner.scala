@@ -4,6 +4,7 @@ import edu.ucsb.apss.util.{VectorWithNorms, PartitionUtil, VectorWithIndex}
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.Dataset
 import scala.collection.mutable.{Map => MMap}
 import java.util
 

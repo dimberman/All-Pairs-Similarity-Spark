@@ -9,12 +9,12 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataOutputStream, Path}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{Logging, SerializableWritable, SparkEnv, TaskContext}
+import org.apache.spark.{SerializableWritable, SparkEnv, TaskContext}
 
 /**
   * Created by dimberman on 4/14/16.
   */
-private[apss] case class FileSystemManager(local: Boolean = false, outputDir: String = "/tmp/output") extends Serializable with Logging {
+private[apss] case class FileSystemManager(local: Boolean = false, outputDir: String = "/tmp/output") extends Serializable {
     val vectorDirectory = outputDir + "/vec/"
     val invertedIndexDirectory = outputDir + "/inv/"
     val cacheDirectory = outputDir +"/cache/"

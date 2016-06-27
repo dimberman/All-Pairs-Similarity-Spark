@@ -19,7 +19,22 @@ import scala.util.Random
   * Created by dimberman on 1/14/16.
   */
 
-case class SimpleInvertedIndex(indices: Map[Int, List[FeaturePair]])
+case class SimpleInvertedIndex(indices: Map[Int, List[FeaturePair]]){
+    def toDatasetCompatible() = {
+        val unzipped = indices.flatMap{case (k, v) => v.map{ case FeaturePair(id, weight) => (k, id, weight)}}.toList
+        val answer = unzipped.unzip3
+        answer
+    }
+}
+
+object SimpleInvertedIndex{
+    def reconstruct(input: (Seq[Int], Seq[Long], Seq[Double])) = {
+        val (docs: Seq[Int], indices:Seq[Long], weights:Seq[Double]) =  input
+        val zipped = docs.zip(indices.zip(weights))
+        SimpleInvertedIndex(zipped.groupBy(x => x._1).map{case(k,x) => (k,x.map{ case(_,fPair) => FeaturePair(fPair._1, fPair._2)}.toList)}.toMap)
+
+    }
+}
 
 object InvertedIndex {
     type IndexMap = MMap[Int, List[FeaturePair]]
