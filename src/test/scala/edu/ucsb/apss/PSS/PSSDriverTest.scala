@@ -42,6 +42,7 @@ class PSSDriverTest extends FlatSpec with Matchers with BeforeAndAfter {
             (3, 1, 0.7071067811865475),
             (2, 1, 0.7071067811865475),
             (3, 2, 0.5))
+        answer.foreach(println)
         answer shouldEqual expected
 
     }

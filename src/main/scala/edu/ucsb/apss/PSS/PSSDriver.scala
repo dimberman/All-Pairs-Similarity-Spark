@@ -227,12 +227,12 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
 //    println("dataset: " + answer.toString)
 
 
-    val similarities = balancedInvertedIndexes.groupBy(x => x.partition).flatMap {
+    val similarities = invertedIndexDataset.groupBy(x => x.partition).flatMapGroups {
       case (k,i) =>
         val manager = BVManager.value
         val writer = manager.genOutputStream(k, BVConf)
 
-        val answer = i.map {
+        val answer = i.foreach {
           case InvertedIndexCalcuation(ind,bucket, tl, x,y,z) =>
 //            val  = p
             val inv = SimpleInvertedIndex.reconstruct((x,y,z))
@@ -297,14 +297,14 @@ class PSSDriver(loadBalance: (Boolean, Boolean) = (true, true), local: Boolean =
 
 
             }
-
             val time = (System.currentTimeMillis() - start).toDouble / 1000
             //                driverAccum += s"breakdown: partition ${(inv.bucket,inv.tl)} took $time seconds to calculate $numVecPair pairs from $numBuc buckets"
             driverAccum += DebugVal((bucket, tl), time, numVecPair, numBuc)
             answer.toList
         }
         writer.close()
-        answer
+        println("got to this line!!")
+        List(42)
     }
 
 
