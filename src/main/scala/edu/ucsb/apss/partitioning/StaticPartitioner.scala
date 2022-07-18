@@ -45,19 +45,38 @@ object StaticPartitioner extends Serializable {
     }
 
 
-    def partitionByL1Sort(r: RDD[VectorWithIndex], numBuckets: Int, numVectors: Long): RDD[(Int, VectorWithIndex)] = {
+    def partitionByL1Sort(r: RDD[VectorWithIndex], numBuckets: Int, numVectors: Long, uniform:Boolean = false): RDD[(Int, VectorWithIndex)] = {
+        val numSplits = numBuckets * (numBuckets + 1) / 2
+        val splitSize = numVectors.toFloat / numSplits
+        val rep = List.range(0,numBuckets).reverse.scan(numBuckets)(_+_).map(_ * splitSize)
+
         r.map(v => (l1Norm(v.vec), v))
           .sortByKey()
           .zipWithIndex()
           .map {
               case ((l1, vec), sortIndex) =>
-                  ((sortIndex.toFloat / numVectors.toFloat * numBuckets).toInt, vec)
+
+                  if (uniform){
+                      ((sortIndex.toFloat/numVectors * numBuckets).toInt, vec)
+                  }
+                  else{
+                      val ind = sortIndex.toFloat
+                      if (sortIndex == 520){
+                          println("balh")
+                      }
+                      var i = 0
+                      while(i < numBuckets && ind > rep(i))
+                          i += 1
+                      (i, vec)
+                  }
+
           }
     }
 
 
     def determineBucketLeaders(r: RDD[(Int, VectorWithNorms)]): Array[(Int, Double)] = {
-        val answer = r.map { case (k, v) => (k, v.l1) }.reduceByKey((a, b) => math.max(a, b)).collect().sortBy(_._1)
+        val answer = r.map { case (k, v) => (k, v.l1) }.reduceByKey((a, b) =>
+            math.max(a, b)).collect().sortBy(_._1)
         answer
     }
 
@@ -108,21 +127,15 @@ object StaticPartitioner extends Serializable {
 
                         var res = 0
                         while (
-                            tMax > sumLeaders(res)._2
-//                              ||
-//                              tSum > maxLeaders(res)._2 ||
-//                              threshold / maxLeaders(res)._2 > l1norm ||
-//                              threshold / sumLeaders(res)._2 > vec.lInf
-                        ) {
+                            (tMax > sumLeaders(res)._2 ||
+                              tSum > maxLeaders(res)._2 ||
+                              threshold / maxLeaders(res)._2 > l1norm ||
+                              threshold / sumLeaders(res)._2 > vec.lInf) &&
+                              res < bucket) {
                             res += 1
                         }
-                        //                            while (res < bucket && getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap) < threshold) {
-                        //                                res += 1
-                        //                            }
-                        //                            if(getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res-1), idealMap) > threshold && bucket != (res-1))
-                        //                                println(s"maximal ideal: ($bucket, $res) " + getMaximalSimilarity((bucket,res),idealVectors(bucket), idealVectors(res), idealMap))
                         res -= 1
-                        if(res < 0) res = bucket
+                        if (res < 0) res = bucket
                         val ans = res
                         require(ans != -1, "something went wrong and there is a bucket that was never given a tl")
                         vec.associatedLeader = ans

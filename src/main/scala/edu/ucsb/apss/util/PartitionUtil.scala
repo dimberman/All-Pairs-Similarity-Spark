@@ -20,6 +20,11 @@ object PartitionUtil extends Serializable {
         math.sqrt(a)
     }
 
+    def normalizer(v: Seq[Double]) = {
+        val a = v.map(a => a * a).sum
+        math.sqrt(a)
+    }
+
     def dotProduct(v1: SparseVector, v2: SparseVector): Double = {
         val v1Map = v1.indices.zip(v1.values).toMap
         var sum = 0.0
@@ -49,10 +54,13 @@ object PartitionUtil extends Serializable {
         answer
     }
 
-    def normalizeVector(vec: SparseVector): SparseVector = {
-        val norm = normalizer(vec)
-        for (i <- vec.values.indices) vec.values(i) = vec.values(i) / norm
-        new SparseVector(vec.size, vec.indices, vec.values)
+    def normalizeVector(vec: SparseVector, filter:Set[Int] = Set()): SparseVector = {
+
+        val (filterInd, filterVals) = vec.indices.zip(vec.values).filterNot{ case(a,b) => filter.contains(a)} .unzip
+        val norm = normalizer(filterVals)
+
+        for (i <- filterInd.indices) filterVals(i) = filterVals(i) / norm
+        new SparseVector(filterInd.size, filterInd.toArray, filterVals.toArray)
 
     }
 
